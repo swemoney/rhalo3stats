@@ -1,1 +1,1 @@
-# Install hook code here
+puts "Thank you for installing Rhalo3stats! Read the README for methods and usage."

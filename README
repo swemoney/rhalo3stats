@@ -1,13 +1,10 @@
-Halo3stats
-==========
+Rhalo3stats
+===========
+This plugin makes it easy to incorporate Halo 3 stats from bungie.net in to your
+Ruby on Rails application.
 
-Introduction goes here.
+More README information coming soon... For now, just look at lib/rhalo3stats.rb
+for method names.
 
-
-Example
-=======
-
-Example goes here.
-
-
-Copyright (c) 2007 [name of plugin creator], released under the MIT license
+------------------------------------------------------------------
+Copyright (c) 2007 Steve Ehrenberg, released under the MIT license
