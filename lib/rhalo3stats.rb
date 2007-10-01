@@ -32,13 +32,13 @@ module Rhalo3stats
     return career_stats(gamertag)
   end
 
-  # halo3_ranked_stats and halo3_social_stats should ONLY be used if you will only 
-  # need one or the other! Don't use one of these if you will be calling the other
-  # one afterwards. If this is what you need, use halo3_multiplayer_stats instead!
   def halo3_social_stats(gamertag)
     return career_stats(gamertag, "true")
   end
   
+  # Currently, bungie.net doesn't seem to play nice with links to their images from
+  # outside bungie.net, so you can't put the image url in a IMG tag. The only thing
+  # seems to work is placing the url in an A tag and linking to the image for download.
   def halo3_recent_screenshots(gamertag)
     return recent_screenshots(gamertag)
   end
@@ -84,7 +84,6 @@ module Rhalo3stats
   
   def recent_screenshots(gamertag)
     screenshots, doc = [], get_rss("http://www.bungie.net/stats/halo3/PlayerScreenshotsRss.ashx?gamertag=#{gamertag}")
-    logger.info("DEBUG :::: #{doc.items[0].inspect}")
     doc.items.each_with_index do |item, i|
       ssid = pull_ssid(item.link)
       screenshots[i] = {
