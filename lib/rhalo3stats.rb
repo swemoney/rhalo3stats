@@ -6,6 +6,7 @@ module Rhalo3stats
   # lot of the information.
   require 'hpricot'
   require 'open-uri'
+  require 'rss'
 
   def halo3_basic_info(gamertag)
     return basic_info(gamertag)
@@ -31,12 +32,15 @@ module Rhalo3stats
     return career_stats(gamertag)
   end
 
+  # halo3_ranked_stats and halo3_social_stats should ONLY be used if you will only 
+  # need one or the other! Don't use one of these if you will be calling the other
+  # one afterwards. If this is what you need, use halo3_multiplayer_stats instead!
   def halo3_social_stats(gamertag)
     return career_stats(gamertag, "true")
   end
   
   def halo3_recent_screenshots(gamertag)
-    # working on this
+    return recent_screenshots(gamertag)
   end
 
   def halo3_recent_multiplayer_games(gamertag)
@@ -77,6 +81,24 @@ module Rhalo3stats
       :campaign_missions => (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(3) td:nth(1)").inner_html
     }
   end
+  
+  def recent_screenshots(gamertag)
+    screenshots, doc = [], get_rss("http://www.bungie.net/stats/halo3/PlayerScreenshotsRss.ashx?gamertag=#{gamertag}")
+    logger.info("DEBUG :::: #{doc.items[0].inspect}")
+    doc.items.each_with_index do |item, i|
+      ssid = pull_ssid(item.link)
+      screenshots[i] = {
+        :thumb_url   => screenshot_url('thumbnail', ssid),
+        :medium_url  => screenshot_url('medium', ssid),
+        :full_url    => screenshot_url('full', ssid),
+        :viewer_url  => item.link,
+        :title       => item.title,
+        :description => item.description,
+        :date        => item.date
+      }
+    end
+    return screenshots
+  end
 
   def kill_to_death_ratio(kills, deaths)
     difference = kills.to_i - deaths.to_i
@@ -92,6 +114,19 @@ module Rhalo3stats
   def get_page(url)
     Hpricot.buffer_size = 262144
     Hpricot(open(url))
+  end
+  
+  def get_rss(url)
+    RSS::Parser.parse(open(url))
+  end
+  
+  def pull_ssid(url)
+    url =~ /\?ssid\=(\d+)\&/
+    return $1
+  end
+  
+  def screenshot_url(size, ssid)
+    "http://www.bungie.net/Stats/Halo3/Screenshot.ashx?size=#{size}&ssid=#{ssid}"
   end
   
 end
