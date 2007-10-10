@@ -18,7 +18,7 @@ module Rhalo3stats
     
     module ClassMethods
       def has_halo3_stats
-        before_create :cache_expires_now
+        before_save   :cache_bungie_pages
         
         def escape_gamertag(gtag)
           gtag = gtag.downcase
@@ -51,19 +51,6 @@ module Rhalo3stats
         get_basic_info
       end
       
-      def halo3_multiplayer_stats
-        ranked_stats = get_career_stats
-        social_stats = get_career_stats(true)
-        kills        = ranked_stats[:kills].to_i + social_stats[:kills].to_i
-        deaths       = ranked_stats[:deaths].to_i + social_stats[:deaths].to_i
-        kill2death   = kill_to_death_ratio(kills, deaths)
-        {
-          :ranked => ranked_stats,
-          :social => social_stats,
-          :total  => {:kills => kills, :deaths => deaths, :kill_to_death => kill2death}
-        }
-      end
-      
       def halo3_ranked_stats
         get_career_stats
       end
@@ -79,22 +66,25 @@ module Rhalo3stats
       def halo3_recent_games
         get_recent_games
       end
+      
+      def halo3_multiplayer_stats
+        ranked_stats = get_career_stats
+        social_stats = get_career_stats(true)
+        kills        = ranked_stats[:kills].to_i + social_stats[:kills].to_i
+        deaths       = ranked_stats[:deaths].to_i + social_stats[:deaths].to_i
+        kill2death   = kill_to_death_ratio(kills, deaths)
+        {
+          :ranked => ranked_stats,
+          :social => social_stats,
+          :total  => {:kills => kills, :deaths => deaths, :kill_to_death => kill2death}
+        }
+      end
 
       
           protected
 
       
-      def cache_bungie_pages
-        debug_me("Fetching bungie.net pages...")
-        self.bnet_front  = bungie_net_front_page_html
-        self.bnet_ranked = bungie_net_ranked_html
-        self.bnet_social = bungie_net_social_html
-        cache_expires_in(6.hours)
-        self.save unless self.new_record?
-      end
-      
       def cache_expired?
-        debug_me("expire_cache_on: #{expire_cache_on}\nTime.now: #{Time.now}")
         return expire_cache_on < Time.now ? true : false
       end
       
@@ -102,20 +92,16 @@ module Rhalo3stats
         self.expire_cache_on = time.from_now
       end
       
-      def cache_expires_now
-        self.expire_cache_on = 1.minute.ago
-      end
-      
       def bungie_net_front_page_html
-        get_page("http://www.bungie.net/stats/Halo3/default.aspx?player=#{gamertag}").inner_html
+        get_page(bungie_net_front_page_url).inner_html
       end
 
       def bungie_net_ranked_html
-        get_page("http://www.bungie.net/stats/halo3/CareerStats.aspx?player=#{gamertag}&social=false&map=0").inner_html
+        get_page(bungie_net_ranked_url).inner_html
       end
 
       def bungie_net_social_html
-        get_page("http://www.bungie.net/stats/halo3/CareerStats.aspx?player=#{gamertag}&social=true&map=0").inner_html
+        get_page(bungie_net_social_url).inner_html
       end
 
       def bungie_net_recent_screenshots_rss
@@ -126,10 +112,32 @@ module Rhalo3stats
         get_rss("http://www.bungie.net/stats/halo3rss.ashx?g=#{gamertag}")
       end
       
+      def bungie_net_front_page_url
+        "http://www.bungie.net/stats/Halo3/default.aspx?player=#{gamertag}"
+      end
+      
+      def bungie_net_ranked_url
+        "http://www.bungie.net/stats/halo3/CareerStats.aspx?player=#{gamertag}&social=false&map=0"
+      end
+      
+      def bungie_net_social_url
+        "http://www.bungie.net/stats/halo3/CareerStats.aspx?player=#{gamertag}&social=true&map=0"
+      end
+      
       
           private
-          
 
+
+      def cache_bungie_pages
+        doc = get_page(bungie_net_front_page_url)
+        raise "GamerTag Does Not Exist" if (doc/"div.main div:nth(1) div:nth(1) div:nth(0) div:nth(0) div:nth(2) div:nth(0) h1:nth(0)").inner_html == "Halo 3 Service Record Not Found"
+        self.bnet_front  = doc.inner_html
+        self.bnet_ranked = bungie_net_ranked_html
+        self.bnet_social = bungie_net_social_html
+        cache_expires_in(6.hours)
+        self.save unless self.new_record?
+      end
+      
       def get_basic_info
         doc = Hpricot(bungie_net_front_page)
         {
