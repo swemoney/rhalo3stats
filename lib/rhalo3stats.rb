@@ -18,7 +18,7 @@ module Rhalo3stats
     
     module ClassMethods
       def has_halo3_stats
-        before_save   :cache_bungie_pages
+        before_save   :setup_new_gamertag
         
         def escape_gamertag(gtag)
           gtag = gtag.downcase
@@ -128,10 +128,15 @@ module Rhalo3stats
           private
 
 
-      def cache_bungie_pages
+      def setup_new_gamertag
         doc = get_page(bungie_net_front_page_url)
-        raise "GamerTag Does Not Exist" if (doc/"div.main div:nth(1) div:nth(1) div:nth(0) div:nth(0) div:nth(2) div:nth(0) h1:nth(0)").inner_html == "Halo 3 Service Record Not Found"
-        self.bnet_front  = doc.inner_html
+        raise "No Halo 3 Service Record" if (doc/"div.main div:nth(1) div:nth(1) div:nth(0) div:nth(0) div:nth(2) div:nth(0) h1:nth(0)").inner_html == "Halo 3 Service Record Not Found"
+        self.bnet_front = doc.inner_html
+        cache_bungie_pages
+      end
+
+      def cache_bungie_pages
+        self.bnet_front  = bungie_net_front_page_html unless self.new_record?
         self.bnet_ranked = bungie_net_ranked_html
         self.bnet_social = bungie_net_social_html
         cache_expires_in(6.hours)
@@ -141,7 +146,7 @@ module Rhalo3stats
       def get_basic_info
         doc = Hpricot(bungie_net_front_page)
         {
-          :gamertag          => (doc/"ctl00_mainContent_identityStrip_divHeader ul:nth(0) li:nth(0) h3:nth(0)").inner_html,
+          :gamertag          => (doc/"#ctl00_mainContent_identityStrip_divHeader ul:nth(0) li:nth(0) h3:nth(0)").inner_html,
           :service_tag       => (doc/"#ctl00_mainContent_identityStrip_lblServiceTag").inner_html,
           :class_rank        => (doc/"#ctl00_mainContent_identityStrip_lblRank").inner_html,
           :highest_skill     => (doc/"#ctl00_mainContent_identityStrip_lblSkill").inner_html,
