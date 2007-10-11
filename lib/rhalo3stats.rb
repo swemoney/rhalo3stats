@@ -160,7 +160,9 @@ module Rhalo3stats
           :total_games       => (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(0) td:nth(1)").inner_html,
           :matchmade_games   => (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(1) td:nth(1)").inner_html,
           :custom_games      => (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(2) td:nth(1)").inner_html,
-          :campaign_missions => (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(3) td:nth(1)").inner_html
+          :campaign_missions => (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(3) td:nth(1)").inner_html,
+          :member_since      => (doc/"div.profile_strip div:nth(1) ul:nth(0) li:nth(1)").inner_html.to_date,
+          :last_played       => (doc/"div.profile_strip div:nth(1) ul:nth(0) li:nth(4)").inner_html.to_date
         }
       end
 
