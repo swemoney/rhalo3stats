@@ -18,46 +18,12 @@ module Rhalo3stats
     
     module ClassMethods
       def has_halo3_stats
-        before_save   :setup_new_gamertag
-        
-        def escape_gamertag(gtag)
-          gtag = gtag.downcase
-          gtag.gsub!(/\s+/,'+')
-          return gtag
-        end
-        
+        before_create :setup_new_gamertag
         include Rhalo3stats::ModelExtensions::InstanceMethods
       end
     end
     
     module InstanceMethods
-      
-      def bungie_net_front_page
-        cache_bungie_pages if cache_expired?
-        self.bnet_front
-      end
-      
-      def bungie_net_ranked_stats_page
-        cache_bungie_pages if cache_expired?
-        self.bnet_ranked
-      end
-      
-      def bungie_net_social_stats_page
-        cache_bungie_pages if cache_expired?
-        self.bnet_social
-      end
-      
-      def halo3_basic_info
-        get_basic_info
-      end
-      
-      def halo3_ranked_stats
-        get_career_stats
-      end
-      
-      def halo3_social_stats
-        get_career_stats(true)
-      end
 
       def halo3_recent_screenshots
         get_recent_screenshots
@@ -67,22 +33,48 @@ module Rhalo3stats
         get_recent_games
       end
       
-      def halo3_multiplayer_stats
-        ranked_stats = get_career_stats
-        social_stats = get_career_stats(true)
-        kills        = ranked_stats[:kills].to_i + social_stats[:kills].to_i
-        deaths       = ranked_stats[:deaths].to_i + social_stats[:deaths].to_i
-        kill2death   = kill_to_death_ratio(kills, deaths)
-        {
-          :ranked => ranked_stats,
-          :social => social_stats,
-          :total  => {:kills => kills, :deaths => deaths, :kill_to_death => kill2death}
-        }
+      def ranked_kill_to_death
+        kill_to_death_ratio(ranked_kills, ranked_deaths)
       end
-
       
+      def social_kill_to_death
+        kill_to_death_ratio(social_kills, social_deaths)
+      end
+      
+      def total_kills
+        ranked_kills + social_kills
+      end
+      
+      def total_deaths
+        ranked_deaths + social_deaths
+      end
+      
+      def total_kill_to_death
+        kill_to_death_ratio(total_kills, total_deaths)
+      end
+          
+          
           protected
-
+          
+          
+      def setup_new_gamertag
+        self.gamertag = gamertag_downcase
+        debug_me("Setting Up New Gamertag: #{gamertag}...")
+        front = get_page(bungie_net_front_page_url)
+        raise "No Halo 3 Service Record" if (front/"div.main div:nth(1) div:nth(1) div:nth(0) div:nth(0) div:nth(2) div:nth(0) h1:nth(0)").inner_html == "Halo 3 Service Record Not Found"
+        save_front_page_information(front)
+        save_career_stats
+        cache_expires_in(12.hours)
+        debug_me("Finished Setting Up #{gamertag}... Saving Record.")
+      end
+      
+      def refresh_information
+        front = get_page(bungie_net_front_page_url)
+        save_front_page_inforation(front)
+        save_career_stats
+        cache_expires_in(12.hours)
+        self.save
+      end
       
       def cache_expired?
         return expire_cache_on < Time.now ? true : false
@@ -91,87 +83,66 @@ module Rhalo3stats
       def cache_expires_in(time)
         self.expire_cache_on = time.from_now
       end
-      
-      def bungie_net_front_page_html
-        get_page(bungie_net_front_page_url).inner_html
-      end
-
-      def bungie_net_ranked_html
-        get_page(bungie_net_ranked_url).inner_html
-      end
-
-      def bungie_net_social_html
-        get_page(bungie_net_social_url).inner_html
-      end
 
       def bungie_net_recent_screenshots_rss
-        get_rss("http://www.bungie.net/stats/halo3/PlayerScreenshotsRss.ashx?gamertag=#{gamertag}")
+        get_rss("http://www.bungie.net/stats/halo3/PlayerScreenshotsRss.ashx?gamertag=#{gamertag.escape_gamertag}")
       end
 
       def bungie_net_recent_games_rss
-        get_rss("http://www.bungie.net/stats/halo3rss.ashx?g=#{gamertag}")
+        get_rss("http://www.bungie.net/stats/halo3rss.ashx?g=#{gamertag.escape_gamertag}")
       end
       
       def bungie_net_front_page_url
-        "http://www.bungie.net/stats/Halo3/default.aspx?player=#{gamertag}"
+        "http://www.bungie.net/stats/Halo3/default.aspx?player=#{gamertag.escape_gamertag}"
       end
       
       def bungie_net_ranked_url
-        "http://www.bungie.net/stats/halo3/CareerStats.aspx?player=#{gamertag}&social=false&map=0"
+        "http://www.bungie.net/stats/halo3/CareerStats.aspx?player=#{gamertag.escape_gamertag}&social=false&map=0"
       end
       
       def bungie_net_social_url
-        "http://www.bungie.net/stats/halo3/CareerStats.aspx?player=#{gamertag}&social=true&map=0"
+        "http://www.bungie.net/stats/halo3/CareerStats.aspx?player=#{gamertag.escape_gamertag}&social=true&map=0"
       end
       
-      
-          private
-
-
-      def setup_new_gamertag
-        doc = get_page(bungie_net_front_page_url)
-        raise "No Halo 3 Service Record" if (doc/"div.main div:nth(1) div:nth(1) div:nth(0) div:nth(0) div:nth(2) div:nth(0) h1:nth(0)").inner_html == "Halo 3 Service Record Not Found"
-        self.bnet_front = doc.inner_html
-        cache_bungie_pages
-      end
-
-      def cache_bungie_pages
-        self.bnet_front  = bungie_net_front_page_html unless self.new_record?
-        self.bnet_ranked = bungie_net_ranked_html
-        self.bnet_social = bungie_net_social_html
-        cache_expires_in(6.hours)
-        self.save unless self.new_record?
+      def screenshot_url(size, ssid)
+        "http://www.bungie.net/Stats/Halo3/Screenshot.ashx?size=#{size}&ssid=#{ssid}"
       end
       
-      def get_basic_info
-        doc = Hpricot(bungie_net_front_page)
-        {
-          :gamertag          => (doc/"#ctl00_mainContent_identityStrip_divHeader ul:nth(0) li:nth(0) h3:nth(0)").inner_html,
-          :service_tag       => (doc/"#ctl00_mainContent_identityStrip_lblServiceTag").inner_html,
-          :class_rank        => (doc/"#ctl00_mainContent_identityStrip_lblRank").inner_html,
-          :highest_skill     => (doc/"#ctl00_mainContent_identityStrip_lblSkill").inner_html,
-          :total_exp         => (doc/"#ctl00_mainContent_identityStrip_lblTotalRP").inner_html,
-          :next_rank         => (doc/"#ctl00_mainContent_identityStrip_hypNextRank").inner_html.to_i.to_s,
-          :emblem_url        => "http://www.bungie.net#{(doc/'#ctl00_mainContent_identityStrip_EmblemCtrl_imgEmblem').first[:src]}",
-          :player_image_url  => "http://www.bungie.net#{(doc/'#ctl00_mainContent_imgModel').first[:src]}",
-          :rank_image_url    => "http://www.bungie.net#{(doc/'#ctl00_mainContent_identityStrip_imgRank').first[:src]}",
-          :baddies_killed    => (doc/"div.profile_strip div:nth(1) table:nth(1) tr:nth(1) td:nth(1)").inner_html,
-          :allies_lost       => (doc/"div.profile_strip div:nth(1) table:nth(1) tr:nth(2) td:nth(1)").inner_html,
-          :total_games       => (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(0) td:nth(1)").inner_html,
-          :matchmade_games   => (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(1) td:nth(1)").inner_html,
-          :custom_games      => (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(2) td:nth(1)").inner_html,
-          :campaign_missions => (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(3) td:nth(1)").inner_html,
-          :member_since      => (doc/"div.profile_strip div:nth(1) ul:nth(0) li:nth(1)").inner_html.to_date,
-          :last_played       => (doc/"div.profile_strip div:nth(1) ul:nth(0) li:nth(4)").inner_html.to_date
-        }
+      def save_front_page_information(doc)
+        self.gamertag             = (doc/"#ctl00_mainContent_identityStrip_divHeader ul:nth(0) li:nth(0) h3:nth(0)").inner_html.gsub!(/\s+$/,"")
+        self.service_tag          = (doc/"#ctl00_mainContent_identityStrip_lblServiceTag").inner_html
+        self.class_rank           = (doc/"#ctl00_mainContent_identityStrip_lblRank").inner_html
+        self.emblem_url           = "http://www.bungie.net#{(doc/'#ctl00_mainContent_identityStrip_EmblemCtrl_imgEmblem').first[:src]}"
+        self.player_image_url     = "http://www.bungie.net#{(doc/'#ctl00_mainContent_imgModel').first[:src]}"
+        self.class_rank_image_url = "http://www.bungie.net#{(doc/'#ctl00_mainContent_identityStrip_imgRank').first[:src]}"
+        self.high_skill           = (doc/"#ctl00_mainContent_identityStrip_lblSkill").inner_html.to_i
+        self.total_exp            = (doc/"#ctl00_mainContent_identityStrip_lblTotalRP").inner_html.to_i
+        self.next_rank            = (doc/"#ctl00_mainContent_identityStrip_hypNextRank").inner_html.to_i
+        self.baddies_killed       = (doc/"div.profile_strip div:nth(1) table:nth(1) tr:nth(1) td:nth(1)").inner_html.to_i
+        self.allies_lost          = (doc/"div.profile_strip div:nth(1) table:nth(1) tr:nth(2) td:nth(1)").inner_html.to_i
+        self.total_games          = (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(0) td:nth(1)").inner_html.to_i
+        self.matchmade_games      = (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(1) td:nth(1)").inner_html.to_i
+        self.custom_games         = (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(2) td:nth(1)").inner_html.to_i
+        self.campaign_missions    = (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(3) td:nth(1)").inner_html.to_i
+        self.member_since         = (doc/"div.profile_strip div:nth(1) ul:nth(0) li:nth(1)").inner_html.to_date
+        self.last_played          = (doc/"div.profile_strip div:nth(1) ul:nth(0) li:nth(4)").inner_html.to_date
       end
-
-      def get_career_stats(social = false)
-        doc = social == false ? Hpricot(bungie_net_ranked_stats_page) : Hpricot(bungie_net_social_stats_page)
-        kills      = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) table:nth(0) tr:nth(0) td:nth(1)").inner_html
-        deaths     = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) table:nth(0) tr:nth(1) td:nth(1)").inner_html
-        kill2death = kill_to_death_ratio(kills, deaths)
-        return {:kills => kills, :deaths => deaths, :kill_to_death => kill2death}
+      
+      def save_career_stats
+        ranked = get_page(bungie_net_ranked_url)
+        social = get_page(bungie_net_social_url)
+        save_ranked_stats(ranked)
+        save_social_stats(social)
+      end
+      
+      def save_ranked_stats(doc)
+        self.ranked_kills  = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) table:nth(0) tr:nth(0) td:nth(1)").inner_html.to_i
+        self.ranked_deaths = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) table:nth(0) tr:nth(1) td:nth(1)").inner_html.to_i
+      end
+      
+      def save_social_stats(doc)
+        self.social_kills  = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) table:nth(0) tr:nth(0) td:nth(1)").inner_html.to_i
+        self.social_deaths = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) table:nth(0) tr:nth(1) td:nth(1)").inner_html.to_i
       end
 
       def get_recent_screenshots
@@ -203,14 +174,11 @@ module Rhalo3stats
         end
         return games
       end
-
+      
       def kill_to_death_ratio(kills, deaths)
         difference = kills.to_i - deaths.to_i
-        if difference > 0
-          return "+#{difference}"
-        else
-          return "#{difference}"
-        end
+        return "+#{difference}" if difference > 0
+        return "#{difference}"
       end
 
       def get_page(url)
@@ -226,10 +194,6 @@ module Rhalo3stats
         url =~ /\?ssid\=(\d+)\&/
         return $1
       end
-
-      def screenshot_url(size, ssid)
-        "http://www.bungie.net/Stats/Halo3/Screenshot.ashx?size=#{size}&ssid=#{ssid}"
-      end
       
       def debug_me(message = "")
         logger.info("\n===== DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG =====\n\n#{message}\n\n===== DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG =====\n\n")
@@ -238,3 +202,13 @@ module Rhalo3stats
     end
   end
 end
+
+class String
+  def escape_gamertag
+    tag = self.downcase
+    tag.gsub!(/\s+$/,'')
+    tag.gsub!(/\s+/,'+')
+    return tag
+  end
+end
+  
