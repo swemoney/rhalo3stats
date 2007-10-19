@@ -10,6 +10,9 @@ require 'rss'
 
 module Rhalo3stats
   
+  class ServiceRecordNotFound < StandardError; end
+  class MissingGamertag < StandardError; end
+    
   module ModelExtensions
     
     def self.included(recipient)
@@ -58,50 +61,43 @@ module Rhalo3stats
           
           
       def setup_new_gamertag
-        self.gamertag = gamertag_downcase
-        debug_me("Setting Up New Gamertag: #{gamertag}...")
+        self.name = name_downcase
+        debug_me("Setting Up New Gamertag: #{name}...")
         front = get_page(bungie_net_front_page_url)
-        raise "No Halo 3 Service Record" if (front/"div.main div:nth(1) div:nth(1) div:nth(0) div:nth(0) div:nth(2) div:nth(0) h1:nth(0)").inner_html == "Halo 3 Service Record Not Found"
+        raise "No Service Record Found" if (front/"div.main div:nth(1) div:nth(1) div:nth(0) div:nth(0) div:nth(2) div:nth(0) h1:nth(0)").inner_html == "Halo 3 Service Record Not Found"
         save_front_page_information(front)
         save_career_stats
-        cache_expires_in(12.hours)
-        debug_me("Finished Setting Up #{gamertag}... Saving Record.")
+        debug_me("Finished Setting Up #{name}... Saving Record.")
       end
       
       def refresh_information
         front = get_page(bungie_net_front_page_url)
         save_front_page_inforation(front)
         save_career_stats
-        cache_expires_in(12.hours)
         self.save
       end
       
       def cache_expired?
-        return expire_cache_on < Time.now ? true : false
       end
       
-      def cache_expires_in(time)
-        self.expire_cache_on = time.from_now
-      end
-
       def bungie_net_recent_screenshots_rss
-        get_rss("http://www.bungie.net/stats/halo3/PlayerScreenshotsRss.ashx?gamertag=#{gamertag.escape_gamertag}")
+        get_rss("http://www.bungie.net/stats/halo3/PlayerScreenshotsRss.ashx?gamertag=#{name.escape_gamertag}")
       end
 
       def bungie_net_recent_games_rss
-        get_rss("http://www.bungie.net/stats/halo3rss.ashx?g=#{gamertag.escape_gamertag}")
+        get_rss("http://www.bungie.net/stats/halo3rss.ashx?g=#{name.escape_gamertag}")
       end
       
       def bungie_net_front_page_url
-        "http://www.bungie.net/stats/Halo3/default.aspx?player=#{gamertag.escape_gamertag}"
+        "http://www.bungie.net/stats/Halo3/default.aspx?player=#{name.escape_gamertag}"
       end
       
       def bungie_net_ranked_url
-        "http://www.bungie.net/stats/halo3/CareerStats.aspx?player=#{gamertag.escape_gamertag}&social=false&map=0"
+        "http://www.bungie.net/stats/halo3/CareerStats.aspx?player=#{name.escape_gamertag}&social=false&map=0"
       end
       
       def bungie_net_social_url
-        "http://www.bungie.net/stats/halo3/CareerStats.aspx?player=#{gamertag.escape_gamertag}&social=true&map=0"
+        "http://www.bungie.net/stats/halo3/CareerStats.aspx?player=#{name.escape_gamertag}&social=true&map=0"
       end
       
       def screenshot_url(size, ssid)
@@ -109,7 +105,7 @@ module Rhalo3stats
       end
       
       def save_front_page_information(doc)
-        self.gamertag             = (doc/"#ctl00_mainContent_identityStrip_divHeader ul:nth(0) li:nth(0) h3:nth(0)").inner_html.gsub!(/\s+$/,"")
+        self.name                 = (doc/"#ctl00_mainContent_identityStrip_divHeader ul:nth(0) li:nth(0) h3:nth(0)").inner_html.gsub!(/\s+$/,"")
         self.service_tag          = (doc/"#ctl00_mainContent_identityStrip_lblServiceTag").inner_html
         self.class_rank           = (doc/"#ctl00_mainContent_identityStrip_lblRank").inner_html
         self.emblem_url           = "http://www.bungie.net#{(doc/'#ctl00_mainContent_identityStrip_EmblemCtrl_imgEmblem').first[:src]}"
