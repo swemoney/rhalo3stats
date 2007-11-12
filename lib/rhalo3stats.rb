@@ -12,7 +12,7 @@ module Rhalo3stats
   
   class ServiceRecordNotFound < StandardError; end
   class MissingGamertag < StandardError; end
-    
+  
   module ModelExtensions
     
     def self.included(recipient)
@@ -61,10 +61,11 @@ module Rhalo3stats
           
           
       def setup_new_gamertag
+        raise MissingGamertag, "No GamerTag was passed" if name_downcase.blank?
         self.name = name_downcase
         debug_me("Setting Up New Gamertag: #{name}...")
         front = get_page(bungie_net_front_page_url)
-        raise "No Service Record Found" if (front/"div.main div:nth(1) div:nth(1) div:nth(0) div:nth(0) div:nth(2) div:nth(0) h1:nth(0)").inner_html == "Halo 3 Service Record Not Found"
+        raise ServiceRecordNotFound, "No Service Record Found" if (front/"div.main div:nth(1) div:nth(1) div:nth(0) div:nth(0) div:nth(2) div:nth(0) h1:nth(0)").inner_html == "Halo 3 Service Record Not Found"
         save_front_page_information(front)
         save_career_stats
         debug_me("Finished Setting Up #{name}... Saving Record.")
@@ -105,21 +106,22 @@ module Rhalo3stats
       end
       
       def save_front_page_information(doc)
-        self.name                 = (doc/"#ctl00_mainContent_identityStrip_divHeader ul:nth(0) li:nth(0) h3:nth(0)").inner_html.gsub!(/\s+$/,"")
+        self.name                 = (doc/"#ctl00_mainContent_identityStrip_divHeader ul:nth(0) li:nth(0) h3:nth(0)").inner_html.gsub!(/\s+-\s<span.+span>/,"")
         self.service_tag          = (doc/"#ctl00_mainContent_identityStrip_lblServiceTag").inner_html
         self.class_rank           = (doc/"#ctl00_mainContent_identityStrip_lblRank").inner_html
         self.emblem_url           = "http://www.bungie.net#{(doc/'#ctl00_mainContent_identityStrip_EmblemCtrl_imgEmblem').first[:src]}"
         self.player_image_url     = "http://www.bungie.net#{(doc/'#ctl00_mainContent_imgModel').first[:src]}"
         self.class_rank_image_url = "http://www.bungie.net#{(doc/'#ctl00_mainContent_identityStrip_imgRank').first[:src]}"
-        self.high_skill           = (doc/"#ctl00_mainContent_identityStrip_lblSkill").inner_html.to_i
-        self.total_exp            = (doc/"#ctl00_mainContent_identityStrip_lblTotalRP").inner_html.to_i
-        self.next_rank            = (doc/"#ctl00_mainContent_identityStrip_hypNextRank").inner_html.to_i
-        self.baddies_killed       = (doc/"div.profile_strip div:nth(1) table:nth(1) tr:nth(1) td:nth(1)").inner_html.to_i
-        self.allies_lost          = (doc/"div.profile_strip div:nth(1) table:nth(1) tr:nth(2) td:nth(1)").inner_html.to_i
-        self.total_games          = (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(0) td:nth(1)").inner_html.to_i
-        self.matchmade_games      = (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(1) td:nth(1)").inner_html.to_i
-        self.custom_games         = (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(2) td:nth(1)").inner_html.to_i
-        self.campaign_missions    = (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(3) td:nth(1)").inner_html.to_i
+        self.campaign_status      = (doc/'#ctl00_mainContent_identityStrip_hypCPStats img:nth(0)').first[:alt]
+        self.high_skill           = (doc/"#ctl00_mainContent_identityStrip_lblSkill").inner_html.gsub(/\,/,"").to_i
+        self.total_exp            = (doc/"#ctl00_mainContent_identityStrip_lblTotalRP").inner_html.gsub(/\,/,"").to_i
+        self.next_rank            = (doc/"#ctl00_mainContent_identityStrip_hypNextRank").inner_html
+        self.baddies_killed       = (doc/"div.profile_strip div:nth(1) table:nth(1) tr:nth(1) td:nth(1)").inner_html.gsub(/\,/,"").to_i
+        self.allies_lost          = (doc/"div.profile_strip div:nth(1) table:nth(1) tr:nth(2) td:nth(1)").inner_html.gsub(/\,/,"").to_i
+        self.total_games          = (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(0) td:nth(1)").inner_html.gsub(/\,/,"").to_i
+        self.matchmade_games      = (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(1) td:nth(1)").inner_html.gsub(/\,/,"").to_i
+        self.custom_games         = (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(2) td:nth(1)").inner_html.gsub(/\,/,"").to_i
+        self.campaign_missions    = (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(3) td:nth(1)").inner_html.gsub(/\,/,"").to_i
         self.member_since         = (doc/"div.profile_strip div:nth(1) ul:nth(0) li:nth(1)").inner_html.to_date
         self.last_played          = (doc/"div.profile_strip div:nth(1) ul:nth(0) li:nth(4)").inner_html.to_date
       end
