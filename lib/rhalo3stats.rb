@@ -53,8 +53,27 @@ module Rhalo3stats
       end
       
       def total_kill_to_death
-        kill_to_death_ratio(total_kills, total_deaths)
+        difference = total_kills.to_i - total_deaths.to_i
+        return "+#{difference}" if difference > 0
+        return "#{difference}"
       end
+
+      def kill_to_death_ratio
+        (total_kills.to_f/total_deaths.to_f).round(2)
+      end
+      
+      def win_percent
+        ((total_exp.to_f/matchmade_games.to_f)*100)
+      end
+      
+      def update_stats
+        if updated_at < 2.hours.ago
+          refresh_information
+          return true
+        else
+          return false
+        end
+      end      
           
           
           protected
@@ -73,20 +92,17 @@ module Rhalo3stats
       
       def refresh_information
         front = get_page(bungie_net_front_page_url)
-        save_front_page_inforation(front)
+        save_front_page_information(front)
         save_career_stats
         self.save
       end
       
-      def cache_expired?
-      end
-      
-      def bungie_net_recent_screenshots_rss
-        get_rss("http://www.bungie.net/stats/halo3/PlayerScreenshotsRss.ashx?gamertag=#{name.escape_gamertag}")
+      def bungie_net_recent_screenshots_url
+        "http://www.bungie.net/stats/halo3/PlayerScreenshotsRss.ashx?gamertag=#{name.escape_gamertag}"
       end
 
-      def bungie_net_recent_games_rss
-        get_rss("http://www.bungie.net/stats/halo3rss.ashx?g=#{name.escape_gamertag}")
+      def bungie_net_recent_games_url
+        "http://www.bungie.net/stats/halo3rss.ashx?g=#{name.escape_gamertag}&md=3"
       end
       
       def bungie_net_front_page_url
@@ -144,48 +160,42 @@ module Rhalo3stats
       end
 
       def get_recent_screenshots
-        screenshots, doc = [], bungie_net_recent_screenshots_rss
-        doc.items.each_with_index do |item, i|
-          ssid = pull_ssid(item.link)
+        screenshots, doc = [], get_xml(bungie_net_recent_screenshots_url)
+        (doc/:item).each_with_index do |item, i|
           screenshots[i] = {
-            :thumb_url   => screenshot_url('thumbnail', ssid),
-            :medium_url  => screenshot_url('medium', ssid),
-            :full_url    => screenshot_url('full', ssid),
-            :viewer_url  => item.link,
-            :title       => item.title,
-            :description => item.description,
-            :date        => item.date
+            :full_url    => (item/'halo3:full_size_image').inner_html,
+            :medium_url  => (item/'halo3:medium_size_image').inner_html,
+            :thumb_url   => (item/'halo3:thumbnail_image').inner_html,
+            :viewer_url  => (item/'link').inner_html,
+            :title       => (item/:title).inner_html,
+            :description => (item/:description).inner_html,
+            :date        => (item/:pubDate).inner_html.to_time
           }
         end
         return screenshots
       end
 
       def get_recent_games
-        games, doc = [], bungie_net_recent_games_rss
-        doc.items.each_with_index do |item, i|
+        games, doc = [], get_xml(bungie_net_recent_games_url)
+        (doc/:item).each_with_index do |item, i|
           games[i] = {
-            :title       => item.title,
-            :date        => item.pubDate,
-            :link        => item.link,
-            :description => item.description
+            :title       => (item/:title).inner_html,
+            :date        => (item/:pubDate).inner_html.to_time,
+            :link        => (item/'link').inner_html,
+            :description => (item/:description).inner_html
           }
         end
         return games
       end
       
-      def kill_to_death_ratio(kills, deaths)
-        difference = kills.to_i - deaths.to_i
-        return "+#{difference}" if difference > 0
-        return "#{difference}"
-      end
-
       def get_page(url)
         Hpricot.buffer_size = 262144
         Hpricot(open(url))
       end
       
-      def get_rss(url)
-        RSS::Parser.parse(open(url))
+      def get_xml(url)
+        Hpricot.buffer_size = 262144
+        Hpricot.XML(open(url))
       end
 
       def pull_ssid(url)
@@ -209,4 +219,3 @@ class String
     return tag
   end
 end
-  
