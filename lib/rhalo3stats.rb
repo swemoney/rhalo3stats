@@ -67,12 +67,8 @@ module Rhalo3stats
       end
       
       def update_stats
-        if updated_at < 2.hours.ago
-          refresh_information
-          return true
-        else
-          return false
-        end
+        refresh_information
+        return self
       end      
           
           
