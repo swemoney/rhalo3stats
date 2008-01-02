@@ -37,11 +37,11 @@ module Rhalo3stats
       end
       
       def ranked_kill_to_death
-        kill_to_death_ratio(ranked_kills, ranked_deaths)
+        (ranked_kills.to_f/ranked_deaths.to_f).round(2).to_d
       end
       
       def social_kill_to_death
-        kill_to_death_ratio(social_kills, social_deaths)
+        (social_kills.to_f/social_deaths.to_f).round(2).to_d
       end
       
       def total_kills
@@ -59,11 +59,11 @@ module Rhalo3stats
       end
 
       def kill_to_death_ratio
-        (total_kills.to_f/total_deaths.to_f).round(2)
+        (total_kills.to_f/total_deaths.to_f).round(2).to_d
       end
       
       def win_percent
-        ((total_exp.to_f/matchmade_games.to_f)*100)
+        ((total_exp.to_f/matchmade_games.to_f) * 100).to_d
       end
       
       def update_stats
