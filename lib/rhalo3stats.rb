@@ -66,6 +66,10 @@ module Rhalo3stats
         ((total_exp.to_f/matchmade_games.to_f) * 100).to_d
       end
       
+      def weapon_stats
+        get_weapon_stats(get_page(bungie_net_ranked_url), get_page(bungie_net_social_url))
+      end
+      
       def update_stats
         refresh_information
         return self
@@ -139,10 +143,12 @@ module Rhalo3stats
       end
       
       def save_career_stats
-        ranked = get_page(bungie_net_ranked_url)
-        social = get_page(bungie_net_social_url)
+        ranked  = get_page(bungie_net_ranked_url)
+        social  = get_page(bungie_net_social_url)
+        weapons = get_weapon_stats(ranked, social)
         save_ranked_stats(ranked)
         save_social_stats(social)
+        save_weapon_stats(weapons)
       end
       
       def save_ranked_stats(doc)
@@ -153,6 +159,40 @@ module Rhalo3stats
       def save_social_stats(doc)
         self.social_kills  = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) table:nth(0) tr:nth(0) td:nth(1)").inner_html.to_i
         self.social_deaths = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) table:nth(0) tr:nth(1) td:nth(1)").inner_html.to_i
+      end
+      
+      def save_weapon_stats(weapons)
+        weapons = weapons["total"].sort {|a,b| b[1] <=> a[1]}
+        5.times do |i|
+          self["weapon#{i+1}_name"] = weapons[i][0][0]
+          self["weapon#{i+1}_num"]  = weapons[i][1]
+          self["weapon#{i+1}_url"]  = weapons[i][0][1]
+        end
+      end
+      
+      def get_weapon_stats(ranked, social)
+        ranked_weapon_ids = ranked.inner_html.scan(/ctl00_mainContent_rptWeapons_ctl\d\d_pnlWeaponDetails/).uniq
+        social_weapon_ids = social.inner_html.scan(/ctl00_mainContent_rptWeapons_ctl\d\d_pnlWeaponDetails/).uniq
+        ranked_weapons, social_weapons, total_stats = {}, {}, {}
+        
+        ranked_weapon_ids.each do |weapon_id|
+          name  = (ranked/"##{weapon_id} div.top div.message div.title").inner_html
+          total = (ranked/"##{weapon_id} div.total div.number").inner_html.to_i
+          image = "http://www.bungie.net#{(ranked/"##{weapon_id} div.top div.overlay_img img").first[:src]}"
+          ranked_weapons[[name, image]] = total
+          total_stats[[name, image]] = total
+        end
+        
+        social_weapon_ids.each do |weapon_id|
+          name  = (social/"##{weapon_id} div.top div.message div.title").inner_html
+          total = (social/"##{weapon_id} div.total div.number").inner_html.to_i
+          image = "http://www.bungie.net#{(social/"##{weapon_id} div.top div.overlay_img img").first[:src]}"
+          social_weapons[[name, image]] = total
+        end
+        
+        total_stats.update(social_weapons) {|name, ranked_val, social_val| ranked_val + social_val}
+        return {"ranked" => ranked_weapons, "social" => social_weapons, "total" => total_stats}
+        
       end
 
       def get_recent_screenshots
