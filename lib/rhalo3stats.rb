@@ -71,7 +71,9 @@ module Rhalo3stats
       end
       
       def update_stats
+        debug_me("Updating Gamertag: #{name}...")
         refresh_information
+        debug_me("Finished Updating Gamertag: #{name}")
         return self
       end      
           
@@ -240,7 +242,7 @@ module Rhalo3stats
       end
       
       def debug_me(message = "")
-        logger.info("\n===== DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG =====\n\n#{message}\n\n===== DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG =====\n\n")
+        logger.info("\n================================\n\n#{message}\n\n================================\n\n")
       end
 
     end
