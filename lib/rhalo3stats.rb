@@ -10,6 +10,39 @@ require 'rss'
 
 module Rhalo3stats
   
+  ARMOR_COLORS = {
+    0 =>  {:code => "#444444", :name => "Steel"},
+    1 =>  {:code => "#bbbbbb", :name => "Silver"},
+    2 =>  {:code => "#ffffff", :name => "White"},
+    3 =>  {:code => "#ff0000", :name => "Red"},
+    4 =>  {:code => "#d65959", :name => "Mauv"},
+    5 =>  {:code => "#ffaaaa", :name => "Salmon"},
+    6 =>  {:code => "#ff9300", :name => "Orange"},
+    7 =>  {:code => "#ffbb5e", :name => "Coral"},
+    8 =>  {:code => "#ffe8c9", :name => "Peach"},
+    9 =>  {:code => "#d4ab0c", :name => "Gold"},
+    10 => {:code => "#fff000", :name => "Yellow"},
+    11 => {:code => "#fffaaa", :name => "Pale"},
+    12 => {:code => "#068100", :name => "Sage"},
+    13 => {:code => "#32cf2a", :name => "Green"},
+    14 => {:code => "#adffa9", :name => "Olive"},
+    15 => {:code => "#08b499", :name => "Teal"},
+    16 => {:code => "#27ecef", :name => "Aqua"},
+    17 => {:code => "#84fbff", :name => "Cyan"},
+    18 => {:code => "#003bdf", :name => "Blue"},
+    19 => {:code => "#3a81dd", :name => "Cobolt"},
+    20 => {:code => "#9ec8ff", :name => "Sapphire"},
+    21 => {:code => "#6300cd", :name => "Violet"},
+    22 => {:code => "#a446f0", :name => "Orchid"},
+    23 => {:code => "#d5aeff", :name => "Lavender"},
+    24 => {:code => "#97002c", :name => "Crimson"},
+    25 => {:code => "#ff336e", :name => "Rubine"},
+    26 => {:code => "#ff8fb0", :name => "Pink"},
+    27 => {:code => "#622103", :name => "Brown"},
+    28 => {:code => "#d77243", :name => "Tan"},
+    29 => {:code => "#d9a085", :name => "Khaki"}
+  }
+    
   class ServiceRecordNotFound < StandardError; end
   class MissingGamertag < StandardError; end
   
@@ -27,7 +60,15 @@ module Rhalo3stats
     end
     
     module InstanceMethods
-
+      
+      def primary_armor_color
+        return ARMOR_COLORS[primary_armor_color_number]
+      end
+  
+      def secondary_armor_color
+        return ARMOR_COLORS[secondary_armor_color_number]
+      end
+      
       def halo3_recent_screenshots
         get_recent_screenshots
       end
@@ -80,7 +121,17 @@ module Rhalo3stats
           
           protected
           
-          
+      
+      def primary_armor_color_number
+        self.player_image_url =~ /&p6=(.*?)&/
+        return $1.to_i
+      end
+      
+      def secondary_armor_color_number
+        self.player_image_url =~ /&p7=(.*?)&/
+        return $1.to_i
+      end
+      
       def setup_new_gamertag
         raise MissingGamertag, "No GamerTag was passed" if name_downcase.blank?
         self.name = name_downcase
