@@ -205,13 +205,13 @@ module Rhalo3stats
       end
       
       def save_ranked_stats(doc)
-        self.ranked_kills  = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) table:nth(0) tr:nth(0) td:nth(1)").inner_html.to_i
-        self.ranked_deaths = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) table:nth(0) tr:nth(1) td:nth(1)").inner_html.to_i
+        self.ranked_kills  = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(1)").inner_html.to_i
+        self.ranked_deaths = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(3)").inner_html.to_i
       end
       
       def save_social_stats(doc)
-        self.social_kills  = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) table:nth(0) tr:nth(0) td:nth(1)").inner_html.to_i
-        self.social_deaths = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) table:nth(0) tr:nth(1) td:nth(1)").inner_html.to_i
+        self.social_kills  = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(1)").inner_html.to_i
+        self.social_deaths = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(3)").inner_html.to_i
       end
       
       def save_weapon_stats(weapons)
