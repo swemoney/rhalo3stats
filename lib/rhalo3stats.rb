@@ -279,12 +279,12 @@ module Rhalo3stats
       
       def get_page(url)
         Hpricot.buffer_size = 262144
-        Hpricot(open(url))
+        Hpricot(open(url, {"User-Agent" => "Mozilla/5.0 Firefox/3.0b5"}))
       end
       
       def get_xml(url)
         Hpricot.buffer_size = 262144
-        Hpricot.XML(open(url))
+        Hpricot.XML(open(url, {"User-Agent" => "Mozilla/5.0 Firefox/3.0b5"}))
       end
 
       def pull_ssid(url)
