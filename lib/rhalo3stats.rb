@@ -205,13 +205,30 @@ module Rhalo3stats
       end
       
       def save_ranked_stats(doc)
-        self.ranked_kills  = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(1)").inner_html.to_i
-        self.ranked_deaths = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(3)").inner_html.to_i
+        games_string              = (doc/"div.header_bottom ul:nth(0) li:nth(0)").inner_html
+        self.ranked_kills         = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(1)").inner_html.to_i
+        self.ranked_deaths        = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(3)").inner_html.to_i
+        self.ranked_games         = /\d+/.match((doc/"div.header_bottom ul:nth(0) li:nth(0)").inner_html).to_s.to_i
+        self.ranked_snipes        = (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i 
+        self.ranked_sticks        = (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i
+        self.ranked_sprees        = (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
+        self.ranked_beatdowns     = (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
+        self.ranked_double_kills  = (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
+        self.ranked_triple_kills  = (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i
+        self.ranked_splatters     = (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i
       end
       
       def save_social_stats(doc)
-        self.social_kills  = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(1)").inner_html.to_i
-        self.social_deaths = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(3)").inner_html.to_i
+        self.social_kills         = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(1)").inner_html.to_i
+        self.social_deaths        = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(3)").inner_html.to_i
+        self.social_games         = /\d+/.match((doc/"div.header_bottom ul:nth(0) li:nth(0)").inner_html).to_s.to_i
+        self.social_snipes        = (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i 
+        self.social_sticks        = (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i
+        self.social_sprees        = (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
+        self.social_beatdowns     = (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
+        self.social_double_kills  = (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
+        self.social_triple_kills  = (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i
+        self.social_splatters     = (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i
       end
       
       def save_weapon_stats(weapons)
