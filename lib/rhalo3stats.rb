@@ -116,8 +116,20 @@ module Rhalo3stats
         refresh_information
         debug_me("Finished Updating Gamertag: #{name}")
         return self
-      end      
-          
+      end
+      
+      def ranked_medals
+        Medal.find_all_by_playlist_type_and_gamertag_id(1, self.id)
+      end
+      
+      def social_medals
+        Medal.find_all_by_playlist_type_and_gamertag_id(2, self.id)
+      end
+      
+      def medal(medal_name_id, playlist_type, updated_quantity = nil)
+        medal = Medal.find_or_create_by_medal_name_id_and_playlist_type_and_gamertag_id(medal_name_id, playlist_type, self.id)
+        medal.update_attribute(:quantity, updated_quantity || 0) unless updated_quantity.blank?
+      end
           
           protected
           
@@ -209,26 +221,87 @@ module Rhalo3stats
         self.ranked_kills         = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(1)").inner_html.to_i
         self.ranked_deaths        = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(3)").inner_html.to_i
         self.ranked_games         = /\d+/.match((doc/"div.header_bottom ul:nth(0) li:nth(0)").inner_html).to_s.to_i
-        self.ranked_snipes        = (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i 
-        self.ranked_sticks        = (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i
-        self.ranked_sprees        = (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
-        self.ranked_beatdowns     = (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
-        self.ranked_double_kills  = (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
-        self.ranked_triple_kills  = (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i
-        self.ranked_splatters     = (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i
+        save_medal_stats(doc, 1)
+        # self.ranked_snipes        = (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i 
+        # self.ranked_sticks        = (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i
+        # self.ranked_sprees        = (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
+        # self.ranked_beatdowns     = (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
+        # self.ranked_double_kills  = (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
+        # self.ranked_triple_kills  = (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i
+        # self.ranked_splatters     = (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i
       end
       
       def save_social_stats(doc)
         self.social_kills         = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(1)").inner_html.to_i
         self.social_deaths        = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(3)").inner_html.to_i
         self.social_games         = /\d+/.match((doc/"div.header_bottom ul:nth(0) li:nth(0)").inner_html).to_s.to_i
-        self.social_snipes        = (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i 
-        self.social_sticks        = (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i
-        self.social_sprees        = (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
-        self.social_beatdowns     = (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
-        self.social_double_kills  = (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
-        self.social_triple_kills  = (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i
-        self.social_splatters     = (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i
+        save_medal_stats(doc, 2)
+        # self.social_snipes        = (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i 
+        # self.social_sticks        = (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i
+        # self.social_sprees        = (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
+        # self.social_beatdowns     = (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
+        # self.social_double_kills  = (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
+        # self.social_triple_kills  = (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i
+        # self.social_splatters     = (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i
+      end
+      
+      def save_medal_stats(doc, type)
+        self.medal(1,  type, (doc/"#ctl00_mainContent_rptMedalRow_ctl08_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i) # Steaktacular
+        self.medal(2,  type, (doc/"#ctl00_mainContent_rptMedalRow_ctl08_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i) # Linktacular
+        self.medal(3,  type, (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i) # Death from the Grave
+        self.medal(4,  type, (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i) # Laser Kill
+        self.medal(5,  type, (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i) # Grenade Stick
+        self.medal(6,  type, (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl08_liOnOver div.num").inner_html.to_i) # Incineration
+        self.medal(7,  type, (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i) # Killjoy
+        self.medal(8,  type, (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i) # Assassin
+        self.medal(9,  type, (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i) # Beat Down
+        self.medal(10, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl00_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i) # Extermination
+        self.medal(11, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i) # Bull True
+        self.medal(12, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i) # Killing Spree
+        self.medal(13, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i) # Killing Frenzy
+        self.medal(14, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i) # Running Riot
+        self.medal(15, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i) # Rampage
+        self.medal(16, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i) # Untouchable
+        self.medal(17, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl00_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i) # Invincible
+        self.medal(18, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i) # Double Kill
+        self.medal(19, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i) # Triple Kill
+        self.medal(20, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i) # Overkill
+        self.medal(21, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i) # Killtacular
+        self.medal(22, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i) # Killtrocity
+        self.medal(23, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl06_liOnOver div.num").inner_html.to_i) # Killimanjaro
+        self.medal(24, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl07_liOnOver div.num").inner_html.to_i) # Killtastrophe
+        self.medal(25, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl08_liOnOver div.num").inner_html.to_i) # Killapocolypse
+        self.medal(26, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl00_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i) # Killionaire
+        self.medal(27, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i) # Sniper Kill
+        self.medal(28, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i) # Sniper Spree
+        self.medal(29, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl07_liOnOver div.num").inner_html.to_i) # Sharpshooter
+        self.medal(30, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i) # Shotgun Spree
+        self.medal(31, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i) # Open Season
+        self.medal(32, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i) # Sword Spree
+        self.medal(33, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl06_liOnOver div.num").inner_html.to_i) # Slice N Dice
+        self.medal(34, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i) # Splatter
+        self.medal(35, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i) # Splatter Spree
+        self.medal(36, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl08_liOnOver div.num").inner_html.to_i) # Vehicular Manslauter
+        self.medal(37, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl06_liOnOver div.num").inner_html.to_i) # Wheelman
+        self.medal(38, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i) # Highjacker
+        self.medal(39, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl07_liOnOver div.num").inner_html.to_i) # Skyjacker
+        self.medal(40, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i) # Killed VIP
+        self.medal(41, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl07_liOnOver div.num").inner_html.to_i) # Bomb Planted
+        self.medal(42, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl06_liOnOver div.num").inner_html.to_i) # Killed Bomb Carrier
+        self.medal(43, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i) # Flag Score
+        self.medal(44, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i) # Killed Flag Carrier
+        self.medal(45, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl07_liOnOver div.num").inner_html.to_i) # Flag Kill
+        self.medal(46, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl08_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i) # Hail to the King
+        self.medal(47, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl06_liOnOver div.num").inner_html.to_i) # Oddball Kill
+        self.medal(48, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl00_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i) # Perfection
+        self.medal(49, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i) # Killed Juggernaut
+        self.medal(50, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl07_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i) # Juggernaut Spree
+        self.medal(51, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl07_rptPlayerMedals_ctl07_liOnOver div.num").inner_html.to_i) # Unstoppable
+        self.medal(52, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i) # Last Man Standing
+        self.medal(53, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl07_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i) # Infection Spree
+        self.medal(54, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl07_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i) # Mmmm Brains
+        self.medal(55, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl07_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i) # Zombie Killing Spree
+        self.medal(56, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl07_rptPlayerMedals_ctl06_liOnOver div.num").inner_html.to_i) # Hells Janitor
       end
       
       def save_weapon_stats(weapons)
