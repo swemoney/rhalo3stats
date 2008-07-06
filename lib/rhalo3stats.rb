@@ -42,7 +42,7 @@ module Rhalo3stats
     28 => {:code => "#d77243", :name => "Tan"},
     29 => {:code => "#d9a085", :name => "Khaki"}
   }
-    
+  
   class ServiceRecordNotFound < StandardError; end
   class MissingGamertag < StandardError; end
   
@@ -64,17 +64,17 @@ module Rhalo3stats
       def primary_armor_color
         return ARMOR_COLORS[primary_armor_color_number]
       end
-  
+      
       def secondary_armor_color
         return ARMOR_COLORS[secondary_armor_color_number]
       end
       
-      def halo3_recent_screenshots
-        get_recent_screenshots
+      def recent_screenshots
+        fetch_screenshots
       end
-
-      def halo3_recent_games
-        get_recent_games
+      
+      def recent_games
+        fetch_games
       end
       
       def ranked_kill_to_death
@@ -85,6 +85,16 @@ module Rhalo3stats
         (social_kills.to_f/social_deaths.to_f).round(2).to_d
       end
       
+      def kill_to_death_difference
+        difference = total_kills.to_i - total_deaths.to_i
+        return "+#{difference}" if difference > 0
+        return "#{difference}"
+      end
+      
+      def kill_to_death_ratio
+        (total_kills.to_f/total_deaths.to_f).round(2).to_d
+      end
+      
       def total_kills
         ranked_kills + social_kills
       end
@@ -93,28 +103,26 @@ module Rhalo3stats
         ranked_deaths + social_deaths
       end
       
-      def total_kill_to_death
-        difference = total_kills.to_i - total_deaths.to_i
-        return "+#{difference}" if difference > 0
-        return "#{difference}"
-      end
-
-      def kill_to_death_ratio
-        (total_kills.to_f/total_deaths.to_f).round(2).to_d
-      end
-      
       def win_percent
         ((total_exp.to_f/matchmade_games.to_f) * 100).to_d
       end
       
-      def weapon_stats
-        get_weapon_stats(get_page(bungie_net_ranked_url), get_page(bungie_net_social_url))
-      end
-      
       def update_stats
-        debug_me("Updating Gamertag: #{name}...")
-        refresh_information
-        debug_me("Finished Updating Gamertag: #{name}")
+        log_me "Updating #{name}..."
+        front_page = get_xml(bungie_net_front_page_url)
+        ranked     = get_xml(bungie_net_ranked_url)
+        social     = get_xml(bungie_net_social_url)
+        
+        update_front_page_stats(front_page)
+        update_ranked_stats(ranked)
+        update_social_stats(social)
+        
+        update_weapon_stats(ranked, social)
+        update_ranked_medals(ranked)
+        update_social_medals(social)
+        
+        self.save
+        log_me "#{name} has been updated"
         return self
       end
       
@@ -126,46 +134,14 @@ module Rhalo3stats
         Medal.find(:all, :conditions => {:playlist_type => 2, :gamertag_id => self.id}, :order => 'quantity DESC', :include => :medal_name, :limit => top)
       end
       
-      def medal(medal_name_id, playlist_type, updated_quantity = nil)
-        medal = Medal.find_or_create_by_medal_name_id_and_playlist_type_and_gamertag_id(medal_name_id, playlist_type, self.id)
-        medal.update_attribute(:quantity, updated_quantity || 0) unless updated_quantity.blank?
-      end
-          
-          protected
-          
-      
-      def primary_armor_color_number
-        self.player_image_url =~ /&p6=(.*?)&/
-        return $1.to_i
-      end
-      
-      def secondary_armor_color_number
-        self.player_image_url =~ /&p7=(.*?)&/
-        return $1.to_i
-      end
-      
-      def setup_new_gamertag
-        raise MissingGamertag, "No GamerTag was passed" if name_downcase.blank?
-        self.name = name_downcase
-        debug_me("Setting Up New Gamertag: #{name}...")
-        front = get_page(bungie_net_front_page_url)
-        raise ServiceRecordNotFound, "No Service Record Found" if (front/"div.main div:nth(1) div:nth(1) div:nth(0) div:nth(0) div:nth(2) div:nth(0) h1:nth(0)").inner_html == "Halo 3 Service Record Not Found"
-        save_front_page_information(front)
-        save_career_stats
-        debug_me("Finished Setting Up #{name}... Saving Record.")
-      end
-      
-      def refresh_information
-        front = get_page(bungie_net_front_page_url)
-        save_front_page_information(front)
-        save_career_stats
-        self.save
+      def medal(medal_name_id, playlist_type)
+        return Medal.find_by_medal_name_id_and_playlist_type_and_gamertag_id(medal_name_id, playlist_type, self.id)
       end
       
       def bungie_net_recent_screenshots_url
         "http://www.bungie.net/stats/halo3/PlayerScreenshotsRss.ashx?gamertag=#{name.escape_gamertag}"
       end
-
+      
       def bungie_net_recent_games_url
         "http://www.bungie.net/stats/halo3rss.ashx?g=#{name.escape_gamertag}&md=3"
       end
@@ -186,112 +162,61 @@ module Rhalo3stats
         "http://www.bungie.net/Stats/Halo3/Screenshot.ashx?size=#{size}&ssid=#{ssid}"
       end
       
-      def save_front_page_information(doc)
-        self.name                 = (doc/"#ctl00_mainContent_identityStrip_divHeader ul:nth(0) li:nth(0) h3:nth(0)").inner_html.gsub!(/\s+-\s<span.+span>/,"")
-        self.service_tag          = (doc/"#ctl00_mainContent_identityStrip_lblServiceTag").inner_html
-        self.class_rank           = (doc/"#ctl00_mainContent_identityStrip_lblRank").inner_html
-        self.emblem_url           = "http://www.bungie.net#{(doc/'#ctl00_mainContent_identityStrip_EmblemCtrl_imgEmblem').first[:src]}"
-        self.player_image_url     = "http://www.bungie.net#{(doc/'#ctl00_mainContent_imgModel').first[:src]}"
-        self.class_rank_image_url = "http://www.bungie.net#{(doc/'#ctl00_mainContent_identityStrip_imgRank').first[:src]}"
-        self.campaign_status      = (doc/'#ctl00_mainContent_identityStrip_hypCPStats img:nth(0)').first[:alt] rescue self.campaign_status = "No Campaign"
-        self.high_skill           = (doc/"#ctl00_mainContent_identityStrip_lblSkill").inner_html.gsub(/\,/,"").to_i
-        self.total_exp            = (doc/"#ctl00_mainContent_identityStrip_lblTotalRP").inner_html.gsub(/\,/,"").to_i
-        self.next_rank            = (doc/"#ctl00_mainContent_identityStrip_hypNextRank").inner_html
-        self.baddies_killed       = (doc/"div.profile_strip div:nth(1) table:nth(1) tr:nth(1) td:nth(1)").inner_html.gsub(/\,/,"").to_i
-        self.allies_lost          = (doc/"div.profile_strip div:nth(1) table:nth(1) tr:nth(2) td:nth(1)").inner_html.gsub(/\,/,"").to_i
-        self.total_games          = (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(0) td:nth(1)").inner_html.gsub(/\,/,"").to_i
-        self.matchmade_games      = (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(1) td:nth(1)").inner_html.gsub(/\,/,"").to_i
-        self.custom_games         = (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(2) td:nth(1)").inner_html.gsub(/\,/,"").to_i
-        self.campaign_missions    = (doc/"div.profile_strip div:nth(1) table:nth(0) tr:nth(3) td:nth(1)").inner_html.gsub(/\,/,"").to_i
-        self.member_since         = (doc/"div.profile_strip div:nth(1) ul:nth(0) li:nth(1)").inner_html.to_date
-        self.last_played          = (doc/"div.profile_strip div:nth(1) ul:nth(0) li:nth(4)").inner_html.to_date
+      protected
+      
+      def setup_new_gamertag
+        raise MissingGamertag, "No GamerTag was passed" if name_downcase.blank?
+        log_me "Creating #{name}..."
+        self.name  = name_downcase
+        front_page = get_page(bungie_net_front_page_url)
+        raise ServiceRecordNotFound, "No Service Record Found" if (front_page/"div.main div:nth(1) div:nth(1) div:nth(0) div:nth(0) div:nth(2) div:nth(0) h1:nth(0)").inner_html == "Halo 3 Service Record Not Found"
+        ranked     = get_page(bungie_net_ranked_url)
+        social     = get_page(bungie_net_social_url)
+        update_front_page_stats(front_page)
+        update_ranked_stats(ranked)
+        update_social_stats(social)
+        update_weapon_stats(ranked, social)
+        update_ranked_medals(ranked)
+        update_social_medals(social)
+        log_me "#{name} has been created"
       end
       
-      def save_career_stats
-        ranked  = get_page(bungie_net_ranked_url)
-        social  = get_page(bungie_net_social_url)
-        weapons = get_weapon_stats(ranked, social)
-        save_ranked_stats(ranked)
-        save_social_stats(social)
-        save_weapon_stats(weapons)
+      def update_front_page_stats(front_page)
+        self.name                 = (front_page/"#ctl00_mainContent_identityStrip_divHeader ul:nth(0) li:nth(0) h3:nth(0)").inner_html.gsub!(/\s+-\s<span.+span>/,"")
+        self.service_tag          = (front_page/"#ctl00_mainContent_identityStrip_lblServiceTag").inner_html
+        self.class_rank           = (front_page/"#ctl00_mainContent_identityStrip_lblRank").inner_html
+        self.emblem_url           = "http://www.bungie.net#{(front_page/'#ctl00_mainContent_identityStrip_EmblemCtrl_imgEmblem').first[:src]}"
+        self.player_image_url     = "http://www.bungie.net#{(front_page/'#ctl00_mainContent_imgModel').first[:src]}"
+        self.class_rank_image_url = "http://www.bungie.net#{(front_page/'#ctl00_mainContent_identityStrip_imgRank').first[:src]}"
+        self.campaign_status      = (front_page/'#ctl00_mainContent_identityStrip_hypCPStats img:nth(0)').first[:alt] rescue self.campaign_status = "No Campaign"
+        self.high_skill           = (front_page/"#ctl00_mainContent_identityStrip_lblSkill").inner_html.gsub(/\,/,"").to_i
+        self.total_exp            = (front_page/"#ctl00_mainContent_identityStrip_lblTotalRP").inner_html.gsub(/\,/,"").to_i
+        self.next_rank            = (front_page/"#ctl00_mainContent_identityStrip_hypNextRank").inner_html
+        self.baddies_killed       = (front_page/"div.profile_strip div:nth(1) table:nth(1) tr:nth(1) td:nth(1)").inner_html.gsub(/\,/,"").to_i
+        self.allies_lost          = (front_page/"div.profile_strip div:nth(1) table:nth(1) tr:nth(2) td:nth(1)").inner_html.gsub(/\,/,"").to_i
+        self.total_games          = (front_page/"div.profile_strip div:nth(1) table:nth(0) tr:nth(0) td:nth(1)").inner_html.gsub(/\,/,"").to_i
+        self.matchmade_games      = (front_page/"div.profile_strip div:nth(1) table:nth(0) tr:nth(1) td:nth(1)").inner_html.gsub(/\,/,"").to_i
+        self.custom_games         = (front_page/"div.profile_strip div:nth(1) table:nth(0) tr:nth(2) td:nth(1)").inner_html.gsub(/\,/,"").to_i
+        self.campaign_missions    = (front_page/"div.profile_strip div:nth(1) table:nth(0) tr:nth(3) td:nth(1)").inner_html.gsub(/\,/,"").to_i
+        self.member_since         = (front_page/"div.profile_strip div:nth(1) ul:nth(0) li:nth(1)").inner_html.to_date
+        self.last_played          = (front_page/"div.profile_strip div:nth(1) ul:nth(0) li:nth(4)").inner_html.to_date
       end
       
-      def save_ranked_stats(doc)
-        games_string              = (doc/"div.header_bottom ul:nth(0) li:nth(0)").inner_html
-        self.ranked_kills         = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(1)").inner_html.to_i
-        self.ranked_deaths        = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(3)").inner_html.to_i
-        self.ranked_games         = /\d+/.match((doc/"div.header_bottom ul:nth(0) li:nth(0)").inner_html).to_s.to_i
-        save_medal_stats(doc, 1)
+      def update_ranked_stats(ranked)
+        self.ranked_kills         = (ranked/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(1)").inner_html.to_i
+        self.ranked_deaths        = (ranked/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(3)").inner_html.to_i
+        self.ranked_games         = /\d+/.match((ranked/"div.header_bottom ul:nth(0) li:nth(0)").inner_html).to_s.to_i
       end
       
-      def save_social_stats(doc)
-        self.social_kills         = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(1)").inner_html.to_i
-        self.social_deaths        = (doc/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(3)").inner_html.to_i
-        self.social_games         = /\d+/.match((doc/"div.header_bottom ul:nth(0) li:nth(0)").inner_html).to_s.to_i
-        save_medal_stats(doc, 2)
+      def update_social_stats(social)
+        self.social_kills         = (social/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(1)").inner_html.to_i
+        self.social_deaths        = (social/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(3)").inner_html.to_i
+        self.social_games         = /\d+/.match((social/"div.header_bottom ul:nth(0) li:nth(0)").inner_html).to_s.to_i
       end
       
-      def save_medal_stats(doc, type)
-        self.medal(1,  type, (doc/"#ctl00_mainContent_rptMedalRow_ctl08_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i) # Steaktacular
-        self.medal(2,  type, (doc/"#ctl00_mainContent_rptMedalRow_ctl08_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i) # Linktacular
-        self.medal(3,  type, (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i) # Death from the Grave
-        self.medal(4,  type, (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i) # Laser Kill
-        self.medal(5,  type, (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i) # Grenade Stick
-        self.medal(6,  type, (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl08_liOnOver div.num").inner_html.to_i) # Incineration
-        self.medal(7,  type, (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i) # Killjoy
-        self.medal(8,  type, (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i) # Assassin
-        self.medal(9,  type, (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i) # Beat Down
-        self.medal(10, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl00_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i) # Extermination
-        self.medal(11, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i) # Bull True
-        self.medal(12, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i) # Killing Spree
-        self.medal(13, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i) # Killing Frenzy
-        self.medal(14, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i) # Running Riot
-        self.medal(15, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i) # Rampage
-        self.medal(16, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i) # Untouchable
-        self.medal(17, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl00_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i) # Invincible
-        self.medal(18, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i) # Double Kill
-        self.medal(19, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i) # Triple Kill
-        self.medal(20, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i) # Overkill
-        self.medal(21, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i) # Killtacular
-        self.medal(22, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i) # Killtrocity
-        self.medal(23, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl06_liOnOver div.num").inner_html.to_i) # Killimanjaro
-        self.medal(24, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl07_liOnOver div.num").inner_html.to_i) # Killtastrophe
-        self.medal(25, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl08_liOnOver div.num").inner_html.to_i) # Killapocolypse
-        self.medal(26, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl00_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i) # Killionaire
-        self.medal(27, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i) # Sniper Kill
-        self.medal(28, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i) # Sniper Spree
-        self.medal(29, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl07_liOnOver div.num").inner_html.to_i) # Sharpshooter
-        self.medal(30, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i) # Shotgun Spree
-        self.medal(31, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i) # Open Season
-        self.medal(32, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i) # Sword Spree
-        self.medal(33, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl06_liOnOver div.num").inner_html.to_i) # Slice N Dice
-        self.medal(34, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i) # Splatter
-        self.medal(35, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i) # Splatter Spree
-        self.medal(36, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl08_liOnOver div.num").inner_html.to_i) # Vehicular Manslauter
-        self.medal(37, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl06_liOnOver div.num").inner_html.to_i) # Wheelman
-        self.medal(38, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i) # Highjacker
-        self.medal(39, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl07_liOnOver div.num").inner_html.to_i) # Skyjacker
-        self.medal(40, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i) # Killed VIP
-        self.medal(41, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl07_liOnOver div.num").inner_html.to_i) # Bomb Planted
-        self.medal(42, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl06_liOnOver div.num").inner_html.to_i) # Killed Bomb Carrier
-        self.medal(43, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i) # Flag Score
-        self.medal(44, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i) # Killed Flag Carrier
-        self.medal(45, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl07_liOnOver div.num").inner_html.to_i) # Flag Kill
-        self.medal(46, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl08_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i) # Hail to the King
-        self.medal(47, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl06_liOnOver div.num").inner_html.to_i) # Oddball Kill
-        self.medal(48, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl00_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i) # Perfection
-        self.medal(49, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i) # Killed Juggernaut
-        self.medal(50, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl07_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i) # Juggernaut Spree
-        self.medal(51, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl07_rptPlayerMedals_ctl07_liOnOver div.num").inner_html.to_i) # Unstoppable
-        self.medal(52, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i) # Last Man Standing
-        self.medal(53, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl07_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i) # Infection Spree
-        self.medal(54, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl07_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i) # Mmmm Brains
-        self.medal(55, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl07_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i) # Zombie Killing Spree
-        self.medal(56, type, (doc/"#ctl00_mainContent_rptMedalRow_ctl07_rptPlayerMedals_ctl06_liOnOver div.num").inner_html.to_i) # Hells Janitor
-      end
-      
-      def save_weapon_stats(weapons)
-        weapons = weapons["total"].sort {|a,b| b[1] <=> a[1]}
+      def update_weapon_stats(ranked, social)
+        weapons = fetch_total_weapon_stats(ranked, social)
+        weapons = weapons.sort {|a,b| b[1] <=> a[1]}
         5.times do |i|
           self["weapon#{i+1}_name"] = weapons[i][0][0]
           self["weapon#{i+1}_num"]  = weapons[i][1]
@@ -299,32 +224,113 @@ module Rhalo3stats
         end
       end
       
-      def get_weapon_stats(ranked, social)
-        ranked_weapon_ids = ranked.inner_html.scan(/ctl00_mainContent_rptWeapons_ctl\d\d_pnlWeaponDetails/).uniq
-        social_weapon_ids = social.inner_html.scan(/ctl00_mainContent_rptWeapons_ctl\d\d_pnlWeaponDetails/).uniq
-        ranked_weapons, social_weapons, total_stats = {}, {}, {}
-        
-        ranked_weapon_ids.each do |weapon_id|
-          name  = (ranked/"##{weapon_id} div.top div.message div.title").inner_html
-          total = (ranked/"##{weapon_id} div.total div.number").inner_html.to_i
-          image = "http://www.bungie.net#{(ranked/"##{weapon_id} div.top div.overlay_img img").first[:src]}"
-          ranked_weapons[[name, image]] = total
-          total_stats[[name, image]] = total
-        end
-        
-        social_weapon_ids.each do |weapon_id|
-          name  = (social/"##{weapon_id} div.top div.message div.title").inner_html
-          total = (social/"##{weapon_id} div.total div.number").inner_html.to_i
-          image = "http://www.bungie.net#{(social/"##{weapon_id} div.top div.overlay_img img").first[:src]}"
-          social_weapons[[name, image]] = total
-        end
-        
-        total_stats.update(social_weapons) {|name, ranked_val, social_val| ranked_val + social_val}
-        return {"ranked" => ranked_weapons, "social" => social_weapons, "total" => total_stats}
-        
+      def update_ranked_medals(ranked)
+        medals = fetch_medals(ranked)
+        update_medals(medals, 1)
       end
-
-      def get_recent_screenshots
+      
+      def update_social_medals(social)
+        medals = fetch_medals(social)
+        update_medals(medals, 2)
+      end
+      
+      def fetch_medals(doc)
+        medals = []
+        medals[0]  = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl08_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i } # Steaktacular
+        medals[1]  = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl08_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i } # Linktacular
+        medals[2]  = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i } # Kill From The Grave
+        medals[3]  = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i } # Laser Kill
+        medals[4]  = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i } # Grenade Stick
+        medals[5]  = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl08_liOnOver div.num").inner_html.to_i } # Incineration
+        medals[6]  = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i } # Killjoy
+        medals[7]  = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i } # Assassin
+        medals[8]  = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i } # Beat Down
+        medals[9]  = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl00_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i } # Extermination
+        medals[10] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i } # Bull True
+        medals[11] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i } # Killing Spree
+        medals[12] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i } # Killing Frenzy
+        medals[13] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i } # Running Riot
+        medals[14] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i } # Rampage
+        medals[15] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i } # Untouchable
+        medals[16] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl00_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i } # Invincible
+        medals[17] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i } # Double Kill
+        medals[18] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i } # Triple Kill
+        medals[19] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i } # Overkill
+        medals[20] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i } # Killtacular
+        medals[21] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i } # Killtrocity
+        medals[22] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl06_liOnOver div.num").inner_html.to_i } # Killimanjaro
+        medals[23] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl07_liOnOver div.num").inner_html.to_i } # Killtastrophe
+        medals[24] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl08_liOnOver div.num").inner_html.to_i } # Killapocolypse
+        medals[25] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl00_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i } # Killionaire
+        medals[26] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i } # Sniper Kill
+        medals[27] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i } # Sniper Spree
+        medals[28] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl07_liOnOver div.num").inner_html.to_i } # Sharpshooter
+        medals[29] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i } # Shotgun Spree
+        medals[30] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i } # Open Season
+        medals[31] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i } # Sword Spree
+        medals[32] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl06_liOnOver div.num").inner_html.to_i } # Slice N Dice
+        medals[33] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i } # Splatter
+        medals[34] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i } # Splatter Spree
+        medals[35] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl02_rptPlayerMedals_ctl08_liOnOver div.num").inner_html.to_i } # Vehicular Manslauter
+        medals[36] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl06_liOnOver div.num").inner_html.to_i } # Wheelman
+        medals[37] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i } # Highjacker
+        medals[38] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl07_liOnOver div.num").inner_html.to_i } # Skyjacker
+        medals[39] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i } # Killed VIP
+        medals[40] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl07_liOnOver div.num").inner_html.to_i } # Bomb Planted
+        medals[41] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl06_liOnOver div.num").inner_html.to_i } # Killed Bomb Carrier
+        medals[42] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i } # Flag Score
+        medals[43] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i } # Killed Flag Carrier
+        medals[44] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl07_liOnOver div.num").inner_html.to_i } # Flag Kill
+        medals[45] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl08_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i } # Hail to the King
+        medals[46] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl06_liOnOver div.num").inner_html.to_i } # Oddball Kill
+        medals[47] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl00_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i } # Perfection
+        medals[48] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i } # Killed Juggernaut
+        medals[49] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl07_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i } # Juggernaut Spree
+        medals[50] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl07_rptPlayerMedals_ctl07_liOnOver div.num").inner_html.to_i } # Unstoppable
+        medals[51] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl06_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i } # Last Man Standing
+        medals[52] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl07_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i } # Infection Spree
+        medals[53] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl07_rptPlayerMedals_ctl05_liOnOver div.num").inner_html.to_i } # Mmmm Brains
+        medals[54] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl07_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i } # Zombie Killing Spree
+        medals[55] = { :quantity => (doc/"#ctl00_mainContent_rptMedalRow_ctl07_rptPlayerMedals_ctl06_liOnOver div.num").inner_html.to_i } # Hells Janitor
+        return medals
+      end
+      
+      def update_medals(medals, playlist_type)
+        medals.each_with_index do |medal, i| 
+          self.update_or_create_medal(i+1, playlist_type, medal[:quantity])
+        end
+      end
+      
+      def update_or_create_medal(medal_name_id, playlist_type, updated_quantity)
+        medal = Medal.find_or_create_by_medal_name_id_and_playlist_type_and_gamertag_id(medal_name_id, playlist_type, self.id)
+        medal.update_attribute(:quantity, updated_quantity || 0) unless updated_quantity.blank?
+      end
+      
+      def fetch_total_weapon_stats(ranked, social)
+        ranked_weapons = fetch_weapons(ranked)
+        social_weapons = fetch_weapons(social)
+        total_weapons  = combine_weapons(ranked_weapons, social_weapons)
+        return total_weapons
+      end
+      
+      def fetch_weapons(doc)
+        weapons = {}
+        weapon_ids = doc.inner_html.scan(/ctl00_mainContent_rptWeapons_ctl\d\d_pnlWeaponDetails/).uniq
+        weapon_ids.each do |weapon_id|
+          name  = (doc/"##{weapon_id} div.top div.message div.title").inner_html
+          total = (doc/"##{weapon_id} div.total div.number").inner_html.to_i
+          image = "http://www.bungie.net#{(doc/"##{weapon_id} div.top div.overlay_img img").first[:src]}"
+          weapons[[name, image]] = total
+        end
+        return weapons
+      end
+      
+      def combine_weapons(ranked_weapons, social_weapons)
+        ranked_weapons.update(social_weapons) {|name, ranked_val, social_val| ranked_val + social_val}
+        return ranked_weapons
+      end
+      
+      def fetch_screenshots
         screenshots, doc = [], get_xml(bungie_net_recent_screenshots_url)
         (doc/:item).each_with_index do |item, i|
           screenshots[i] = {
@@ -334,23 +340,35 @@ module Rhalo3stats
             :viewer_url  => (item/'link').inner_html,
             :title       => (item/:title).inner_html,
             :description => (item/:description).inner_html,
-            :date        => (item/:pubDate).inner_html.to_time
+            :date        => (item/:pubDate).inner_html.to_time,
+            :ssid        => pull_ssid((item/'link').inner_html)
           }
         end
         return screenshots
       end
-
-      def get_recent_games
+      
+      def fetch_games
         games, doc = [], get_xml(bungie_net_recent_games_url)
         (doc/:item).each_with_index do |item, i|
           games[i] = {
             :title       => (item/:title).inner_html,
             :date        => (item/:pubDate).inner_html.to_time,
             :link        => (item/'link').inner_html,
-            :description => (item/:description).inner_html
+            :description => (item/:description).inner_html,
+            :gameid      => pull_gameid((item/'link').inner_html)
           }
         end
         return games
+      end
+      
+      def primary_armor_color_number
+        self.player_image_url =~ /&p6=(.*?)&/
+        return $1.to_i
+      end
+      
+      def secondary_armor_color_number
+        self.player_image_url =~ /&p7=(.*?)&/
+        return $1.to_i
       end
       
       def get_page(url)
@@ -362,16 +380,21 @@ module Rhalo3stats
         Hpricot.buffer_size = 262144
         Hpricot.XML(open(url, {"User-Agent" => "Mozilla/5.0 Firefox/3.0b5"}))
       end
-
+      
       def pull_ssid(url)
         url =~ /\?ssid\=(\d+)\&/
         return $1
       end
       
-      def debug_me(message = "")
-        logger.info("\n================================\n\n#{message}\n\n================================\n\n")
+      def pull_gameid(url)
+        url =~ /\?gameid=(\d+)\&/
+        return $1
       end
-
+      
+      def log_me(message = "")
+        logger.info("rHalo3Stats : INFO : #{message}")
+      end
+      
     end
   end
 end
