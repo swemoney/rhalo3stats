@@ -1,24 +1,12 @@
 Rhalo3stats
 ===========
-This plugin makes it easy to incorporate Halo 3 stats from bungie.net in to your
-Ruby on Rails application.
+This plugin was made for myself to be used with my own Halo 3 Players
+Facebook application. It's used to scrape and store data from bungie.net
+about a gamertag's Halo 3 stats.
 
-You will need a model with the following fields...
-
- - gamertag (string)
- - bnet_front (text)
- - bnet_ranked (text)
- - bnet_social (text)
-
-Then in the model file, add has_halo3_stats to the top of it...
-
-class User < ActiveRecord::Base
-  has_halo3_stats
-  ... The rest of your model file ...
-end
-
-I'll add the information for the methods available soon, but for now, just 
-look at lib/rhalo3stats.rb and you should be able to figure most of it out.
+I haven't done any extra work to make it simple for an end user to pick 
+up and plug in to their Rails application so use at your own risk. I may
+get around to improving end-user usability in the future.
 
 ------------------------------------------------------------------
 Copyright (c) 2007 Steve Ehrenberg, released under the MIT license

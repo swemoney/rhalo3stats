@@ -127,11 +127,11 @@ module Rhalo3stats
       end
       
       def ranked_medals(top = 56)
-        Medal.find(:all, :conditions => {:playlist_type => 1, :gamertag_id => self.id}, :order => 'quantity DESC', :include => :medal_name, :limit => top)
+        Medal.find(:all, :conditions => ["playlist_type = ? AND gamertag_id = ? AND quantity > ?", 1, self.id, 0], :order => 'quantity DESC', :include => :medal_name, :limit => top)
       end
       
       def social_medals(top = 56)
-        Medal.find(:all, :conditions => {:playlist_type => 2, :gamertag_id => self.id}, :order => 'quantity DESC', :include => :medal_name, :limit => top)
+        Medal.find(:all, :conditions => ["playlist_type = ? AND gamertag_id = ? AND quantity > ?", 2, self.id, 0], :order => 'quantity DESC', :include => :medal_name, :limit => top)
       end
       
       def medal(medal_name_id, playlist_type)
