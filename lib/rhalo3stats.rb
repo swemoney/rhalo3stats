@@ -62,6 +62,20 @@ module Rhalo3stats
     
     module InstanceMethods
       
+      # for backwards compatibility
+      def total_kill_to_death
+        kill_to_death_difference
+      end
+      
+      def halo3_recent_games
+        recent_games
+      end
+      
+      def halo3_recent_screenshots
+        recent_screenshots
+      end
+      # End backwards compatibility
+      
       def primary_armor_color
         return ARMOR_COLORS[primary_armor_color_number]
       end
@@ -84,11 +98,6 @@ module Rhalo3stats
       
       def social_kill_to_death
         (social_kills.to_f/social_deaths.to_f).round(2).to_d
-      end
-      
-      # for backwards compatibility
-      def total_kill_to_death
-        kill_to_death_difference
       end
       
       def kill_to_death_difference
