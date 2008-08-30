@@ -55,6 +55,7 @@ module Rhalo3stats
     module ClassMethods
       def has_halo3_stats
         before_create :setup_new_gamertag
+        after_create :finish_new_gamertag_setup
         include Rhalo3stats::ModelExtensions::InstanceMethods
       end
     end
@@ -83,6 +84,11 @@ module Rhalo3stats
       
       def social_kill_to_death
         (social_kills.to_f/social_deaths.to_f).round(2).to_d
+      end
+      
+      # for backwards compatibility
+      def total_kill_to_death
+        kill_to_death_ratio
       end
       
       def kill_to_death_difference
@@ -170,15 +176,21 @@ module Rhalo3stats
         self.name  = name_downcase
         front_page = get_page(bungie_net_front_page_url)
         raise ServiceRecordNotFound, "No Service Record Found" if (front_page/"div.main div:nth(1) div:nth(1) div:nth(0) div:nth(0) div:nth(2) div:nth(0) h1:nth(0)").inner_html == "Halo 3 Service Record Not Found"
+        update_front_page_stats(front_page)
+        log_me "#{name} has been created"
+      end
+      
+      def finish_new_gamertag_setup
+        log_me "Finishing New GamerTag, #{name}..."
         ranked     = get_page(bungie_net_ranked_url)
         social     = get_page(bungie_net_social_url)
-        update_front_page_stats(front_page)
         update_ranked_stats(ranked)
         update_social_stats(social)
         update_weapon_stats(ranked, social)
         update_ranked_medals(ranked)
         update_social_medals(social)
-        log_me "#{name} has been created"
+        self.save
+        log_me "#{name} is done being created"
       end
       
       def update_front_page_stats(front_page)
@@ -206,12 +218,26 @@ module Rhalo3stats
         self.ranked_kills         = (ranked/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(1)").inner_html.to_i
         self.ranked_deaths        = (ranked/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(3)").inner_html.to_i
         self.ranked_games         = /\d+/.match((ranked/"div.header_bottom ul:nth(0) li:nth(0)").inner_html).to_s.to_i
+        self.ranked_sprees        = (ranked/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
+        self.ranked_double_kills  = (ranked/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
+        self.ranked_triple_kills  = (ranked/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i
+        self.ranked_sticks        = (ranked/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i
+        self.ranked_splatters     = (ranked/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i
+        self.ranked_snipes        = (ranked/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i
+        self.ranked_beatdowns     = (ranked/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
       end
       
       def update_social_stats(social)
         self.social_kills         = (social/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(1)").inner_html.to_i
         self.social_deaths        = (social/"#ctl00_mainContent_pnlStatsContainer div:nth(0) div:nth(0) div:nth(0) ul:nth(0) li:nth(3)").inner_html.to_i
         self.social_games         = /\d+/.match((social/"div.header_bottom ul:nth(0) li:nth(0)").inner_html).to_s.to_i
+        self.social_sprees        = (social/"#ctl00_mainContent_rptMedalRow_ctl01_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
+        self.social_double_kills  = (social/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
+        self.social_triple_kills  = (social/"#ctl00_mainContent_rptMedalRow_ctl03_rptPlayerMedals_ctl02_liOnOver div.num").inner_html.to_i
+        self.social_sticks        = (social/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl04_liOnOver div.num").inner_html.to_i
+        self.social_splatters     = (social/"#ctl00_mainContent_rptMedalRow_ctl05_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i
+        self.social_snipes        = (social/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl03_liOnOver div.num").inner_html.to_i
+        self.social_beatdowns     = (social/"#ctl00_mainContent_rptMedalRow_ctl04_rptPlayerMedals_ctl01_liOnOver div.num").inner_html.to_i
       end
       
       def update_weapon_stats(ranked, social)
