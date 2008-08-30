@@ -88,7 +88,7 @@ module Rhalo3stats
       
       # for backwards compatibility
       def total_kill_to_death
-        kill_to_death_ratio
+        kill_to_death_difference
       end
       
       def kill_to_death_difference
