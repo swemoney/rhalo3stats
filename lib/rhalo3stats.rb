@@ -45,6 +45,7 @@ module Rhalo3stats
   
   class ServiceRecordNotFound < StandardError; end
   class MissingGamertag < StandardError; end
+  class PlayerNotRanked < StandardError; end
   
   module ModelExtensions
     
@@ -124,9 +125,9 @@ module Rhalo3stats
       
       def update_stats
         log_me "Updating #{name}..."
-        front_page = get_xml(bungie_net_front_page_url)
-        ranked     = get_xml(bungie_net_ranked_url)
-        social     = get_xml(bungie_net_social_url)
+        front_page = get_page(bungie_net_front_page_url)
+        ranked     = get_page(bungie_net_ranked_url)
+        social     = get_page(bungie_net_social_url)
         
         update_front_page_stats(front_page)
         update_ranked_stats(ranked)
@@ -205,11 +206,11 @@ module Rhalo3stats
       def update_front_page_stats(front_page)
         self.name                 = (front_page/"#ctl00_mainContent_identityStrip_divHeader ul:nth(0) li:nth(0) h3:nth(0)").inner_html.gsub!(/\s+-\s<span.+span>/,"")
         self.service_tag          = (front_page/"#ctl00_mainContent_identityStrip_lblServiceTag").inner_html
-        self.class_rank           = (front_page/"#ctl00_mainContent_identityStrip_lblRank").inner_html
+        self.class_rank           = (front_page/"#ctl00_mainContent_identityStrip_lblRank").inner_html || "Not Ranked"
         self.emblem_url           = "http://www.bungie.net#{(front_page/'#ctl00_mainContent_identityStrip_EmblemCtrl_imgEmblem').first[:src]}"
-        self.player_image_url     = "http://www.bungie.net#{(front_page/'#ctl00_mainContent_imgModel').first[:src]}"
-        self.class_rank_image_url = "http://www.bungie.net#{(front_page/'#ctl00_mainContent_identityStrip_imgRank').first[:src]}"
-        self.campaign_status      = (front_page/'#ctl00_mainContent_identityStrip_hypCPStats img:nth(0)').first[:alt] rescue self.campaign_status = "No Campaign"
+        self.player_image_url     = "http://www.bungie.net#{(front_page/'#ctl00_mainContent_imgModel').first[:src]}"              rescue self.player_image_url = "http://#{RMT_HOST}/images/no_player_image.jpg"
+        self.class_rank_image_url = "http://www.bungie.net#{(front_page/'#ctl00_mainContent_identityStrip_imgRank').first[:src]}" rescue self.class_rank_image_url = "http://#{RMT_HOST}/images/no_class_rank.jpg"
+        self.campaign_status      = (front_page/'#ctl00_mainContent_identityStrip_hypCPStats img:nth(0)').first[:alt]             rescue self.campaign_status = "No Campaign"
         self.high_skill           = (front_page/"#ctl00_mainContent_identityStrip_lblSkill").inner_html.gsub(/\,/,"").to_i
         self.total_exp            = (front_page/"#ctl00_mainContent_identityStrip_lblTotalRP").inner_html.gsub(/\,/,"").to_i
         self.next_rank            = (front_page/"#ctl00_mainContent_identityStrip_hypNextRank").inner_html
@@ -253,9 +254,9 @@ module Rhalo3stats
         weapons = fetch_total_weapon_stats(ranked, social)
         weapons = weapons.sort {|a,b| b[1] <=> a[1]}
         5.times do |i|
-          self["weapon#{i+1}_name"] = weapons[i][0][0]
-          self["weapon#{i+1}_num"]  = weapons[i][1]
-          self["weapon#{i+1}_url"]  = weapons[i][0][1]
+          self["weapon#{i+1}_name"] = weapons[i][0][0]  rescue "Not Enough Data"
+          self["weapon#{i+1}_num"]  = weapons[i][1]     rescue 0
+          self["weapon#{i+1}_url"]  = weapons[i][0][1]  rescue "http://www.bungie.net/images/halo3stats/weapons/unknown.gif"
         end
       end
       
@@ -352,9 +353,9 @@ module Rhalo3stats
         weapons = {}
         weapon_ids = doc.inner_html.scan(/ctl00_mainContent_rptWeapons_ctl\d\d_pnlWeaponDetails/).uniq
         weapon_ids.each do |weapon_id|
-          name  = (doc/"##{weapon_id} div.top div.message div.title").inner_html
-          total = (doc/"##{weapon_id} div.total div.number").inner_html.to_i
-          image = "http://www.bungie.net#{(doc/"##{weapon_id} div.top div.overlay_img img").first[:src]}"
+          name  = (doc/"##{weapon_id} div.top div.message div.title").inner_html                          rescue name  = "Not Enough Data"
+          total = (doc/"##{weapon_id} div.total div.number").inner_html.to_i                              rescue total = 0
+          image = "http://www.bungie.net#{(doc/"##{weapon_id} div.top div.overlay_img img").first[:src]}" rescue image = "http://www.bungie.net/images/halo3stats/weapons/unknown.gif"
           weapons[[name, image]] = total
         end
         return weapons
