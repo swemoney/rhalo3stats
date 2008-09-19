@@ -63,26 +63,40 @@ module Rhalo3stats
     
     module InstanceMethods
       
-      # for backwards compatibility
-      def total_kill_to_death
-        kill_to_death_difference
+      def total_sprees
+        self.ranked_sprees + self.social_sprees
       end
       
-      def halo3_recent_games
-        recent_games
+      def total_double_kills
+        self.ranked_double_kills + self.social_double_kills
       end
       
-      def halo3_recent_screenshots
-        recent_screenshots
+      def total_triple_kills
+        self.ranked_triple_kills + self.social_triple_kills
       end
-      # End backwards compatibility
+      
+      def total_splatters
+        self.ranked_splatters + self.social_splatters
+      end
+      
+      def total_snipes
+        self.ranked_snipes + self.social_snipes
+      end
+      
+      def total_sticks
+        self.ranked_sticks + self.social_sticks
+      end
+      
+      def total_beatdowns
+        self.ranked_beatdowns + self.social_beatdowns
+      end
       
       def primary_armor_color
-        return ARMOR_COLORS[primary_armor_color_number]
+        ARMOR_COLORS[primary_armor_color_number]
       end
       
       def secondary_armor_color
-        return ARMOR_COLORS[secondary_armor_color_number]
+        ARMOR_COLORS[secondary_armor_color_number]
       end
       
       def recent_screenshots
@@ -104,7 +118,7 @@ module Rhalo3stats
       def kill_to_death_difference
         difference = total_kills.to_i - total_deaths.to_i
         return "+#{difference}" if difference > 0
-        return "#{difference}"
+        "#{difference}"
       end
       
       def kill_to_death_ratio
@@ -151,7 +165,7 @@ module Rhalo3stats
       end
       
       def medal(medal_name_id, playlist_type)
-        return Medal.find_by_medal_name_id_and_playlist_type_and_gamertag_id(medal_name_id, playlist_type, self.id)
+        Medal.find_by_medal_name_id_and_playlist_type_and_gamertag_id(medal_name_id, playlist_type, self.id)
       end
       
       def bungie_net_recent_screenshots_url
