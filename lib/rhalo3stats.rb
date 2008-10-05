@@ -137,31 +137,31 @@ module Rhalo3stats
       # End backwards compatibility
       
       def total_sprees
-        self.ranked_sprees + self.social_sprees
+        ranked_sprees.to_i + social_sprees.to_i
       end
       
       def total_double_kills
-        self.ranked_double_kills + self.social_double_kills
+        ranked_double_kills.to_i + social_double_kills.to_i
       end
       
       def total_triple_kills
-        self.ranked_triple_kills + self.social_triple_kills
+        ranked_triple_kills.to_i + social_triple_kills.to_i
       end
       
       def total_splatters
-        self.ranked_splatters + self.social_splatters
+        ranked_splatters.to_i + social_splatters.to_i
       end
       
       def total_snipes
-        self.ranked_snipes + self.social_snipes
+        ranked_snipes.to_i + social_snipes.to_i
       end
       
       def total_sticks
-        self.ranked_sticks + self.social_sticks
+        ranked_sticks.to_i + social_sticks.to_i
       end
       
       def total_beatdowns
-        self.ranked_beatdowns + self.social_beatdowns
+        ranked_beatdowns.to_i + social_beatdowns.to_i
       end
       
       def primary_armor_color
@@ -199,11 +199,11 @@ module Rhalo3stats
       end
       
       def total_kills
-        ranked_kills + social_kills
+        ranked_kills.to_i + social_kills.to_i
       end
       
       def total_deaths
-        ranked_deaths + social_deaths
+        ranked_deaths.to_i + social_deaths.to_i
       end
       
       def win_percent
