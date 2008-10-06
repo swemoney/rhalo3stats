@@ -115,7 +115,7 @@ module Rhalo3stats
     module ClassMethods
       def has_halo3_stats
         before_create :setup_new_gamertag
-        after_create :finish_new_gamertag_setup
+        after_create  :finish_new_gamertag_setup
         include Rhalo3stats::ModelExtensions::InstanceMethods
       end
     end
@@ -181,11 +181,11 @@ module Rhalo3stats
       end
       
       def ranked_kill_to_death
-        (ranked_kills.to_f/ranked_deaths.to_f).round(2).to_d
+        (ranked_kills.to_f/ranked_deaths.to_f).round(3).to_d
       end
       
       def social_kill_to_death
-        (social_kills.to_f/social_deaths.to_f).round(2).to_d
+        (social_kills.to_f/social_deaths.to_f).round(3).to_d
       end
       
       def kill_to_death_difference
@@ -195,7 +195,7 @@ module Rhalo3stats
       end
       
       def kill_to_death_ratio
-        (total_kills.to_f/total_deaths.to_f).round(2).to_d
+        (total_kills.to_f/total_deaths.to_f).round(3).to_d
       end
       
       def total_kills
@@ -274,6 +274,8 @@ module Rhalo3stats
       def finish_new_gamertag_setup
         log_me "Finishing New GamerTag, #{name}..."
         career = get_page(bungie_net_career_url)
+        update_ranked_stats(career)
+        update_social_stats(career)
         update_weapon_stats(career)
         update_medals(career)
         self.save
