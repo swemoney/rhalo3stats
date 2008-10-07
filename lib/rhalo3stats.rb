@@ -370,12 +370,12 @@ module Rhalo3stats
           screenshots[i] = {
             :full_url    => (item/'halo3:full_size_image').inner_html,
             :medium_url  => (item/'halo3:medium_size_image').inner_html,
-            :thumb_url   => (item/'halo3:thumbnail_image').inner_html,
+            :thumb_url   => (item/'media:thumbnail').first[:url],
             :viewer_url  => (item/'link').inner_html,
             :title       => (item/:title).inner_html,
             :description => (item/:description).inner_html,
             :date        => (item/:pubDate).inner_html.to_time,
-            :ssid        => pull_ssid((item/'link').inner_html)
+            :ssid        => pull_ssid( (item/'link').inner_html )
           }
         end
         return screenshots
@@ -416,7 +416,7 @@ module Rhalo3stats
       end
       
       def pull_ssid(url)
-        url =~ /\?ssid\=(\d+)\&/
+        url =~ /\?h3fileid\=(\d+)/
         return $1
       end
       
