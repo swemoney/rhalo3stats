@@ -283,6 +283,7 @@ module Rhalo3stats
       end
       
       def update_front_page_stats(front_page)
+        raise ServiceRecordNotFound, "No Service Record Found" if (front_page/"div.spotlight h1:nth(0)").inner_html == "Halo 3 Service Record Not Found"
         self.name                 = (front_page/"div.service_record_header div:nth(1) ul li h3").inner_html.split(" - ")[0].strip
         self.service_tag          = (front_page/"div.service_record_header div:nth(1) ul li h3 span").inner_html
         self.class_rank           = (front_page/"#ctl00_mainContent_identityStrip_lblRank").inner_html.split(": ")[1] || "Not Ranked"
