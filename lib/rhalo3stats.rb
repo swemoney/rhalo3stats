@@ -342,8 +342,8 @@ module Rhalo3stats
       
       def update_medals(career)
         medal_divs = career.search("div.medal_list_overlay") do |medal|
-          create_or_update_medal(MEDAL_IDS[medal[:id]], 1, (medal/"div div:nth(2) div.number").inner_html.to_i)
-          create_or_update_medal(MEDAL_IDS[medal[:id]], 2, (medal/"div div:nth(3) div.number").inner_html.to_i)
+          create_or_update_medal(MEDAL_IDS[medal[:id]], 1, (medal/"div div:nth(2) div.number").inner_html.gsub(",","").to_i)
+          create_or_update_medal(MEDAL_IDS[medal[:id]], 2, (medal/"div div:nth(3) div.number").inner_html.gsub(",","").to_i)
         end
       end
       
