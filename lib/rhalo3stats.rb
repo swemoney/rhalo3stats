@@ -284,7 +284,7 @@ module Rhalo3stats
       end
       
       def bungie_net_career_url
-        "http://www.bungie.net/stats/Halo3/CareerStats.aspx?player=#{name.escape_gamertag}"
+        "http://www.bungie.net/stats/Halo3/careerstats.aspx?player=#{name.escape_gamertag}"
       end
       
       def screenshot_url(size, ssid)
@@ -330,23 +330,23 @@ module Rhalo3stats
       def update_front_page_stats
         raise ServiceRecordNotFound, "No Service Record Found" if (@front_page/"div.spotlight h1:nth(0)").inner_html == "Halo 3 Service Record Not Found"
         self.name                 = (@front_page/"div.service_record_header div:nth(1) ul li h3").inner_html.split(" - ")[0].strip
-        self.service_tag          = (@front_page/"div.service_record_header div:nth(1) ul li h3 span").inner_html
+        self.service_tag          = (@front_page/"div.service_record_header div:nth(1) ul li h3").inner_html.split(" - ")[1].strip
         self.class_rank           = (@front_page/"#ctl00_mainContent_identityStrip_lblRank").inner_html.split(": ")[1] || "Not Ranked"
         self.emblem_url           = "http://www.bungie.net#{(@front_page/'#ctl00_mainContent_identityStrip_EmblemCtrl_imgEmblem').first[:src]}"
-        self.player_image_url     = "http://www.bungie.net#{(@front_page/'#ctl00_mainContent_imgModel').first[:src]}"              rescue self.player_image_url = "http://#{RMT_HOST}/images/no_player_image.jpg"
+        self.player_image_url     = "http://www.bungie.net#{(@front_page/'#ctl00_mainContent_imgModel').first[:src]}".gsub("9=145","9=300") rescue self.player_image_url = "http://#{RMT_HOST}/images/no_player_image.jpg"
         self.class_rank_image_url = "http://www.bungie.net#{(@front_page/'#ctl00_mainContent_identityStrip_imgRank').first[:src]}" rescue self.class_rank_image_url = "http://#{RMT_HOST}/images/no_class_rank.jpg"
         self.campaign_status      = (@front_page/'#ctl00_mainContent_identityStrip_hypCPStats img:nth(0)').first[:alt]             rescue self.campaign_status = "No Campaign"
         self.high_skill           = (@front_page/"#ctl00_mainContent_identityStrip_lblSkill").inner_html.gsub(/\,/,"").to_i
         self.total_exp            = (@front_page/"#ctl00_mainContent_identityStrip_lblTotalRP").inner_html.gsub(/\,/,"").to_i
         self.next_rank            = (@front_page/"#ctl00_mainContent_identityStrip_hypNextRank").inner_html
-        self.baddies_killed       = (@front_page/"div.profile_strip div.profile_body ul.data li:nth(1)").inner_html.gsub(/\,/,"").to_i
-        self.allies_lost          = (@front_page/"div.profile_strip div.profile_body ul.data li:nth(3)").inner_html.gsub(/\,/,"").to_i
-        self.total_games          = (@front_page/"div.profile_strip div.profile_body div.mmData ul:nth(0) li.values").inner_html.gsub(/\,/,"").to_i
-        self.matchmade_games      = (@front_page/"div.profile_strip div.profile_body div.mmData ul:nth(1) li.values").inner_html.gsub(/\,/,"").to_i
-        self.custom_games         = (@front_page/"div.profile_strip div.profile_body div.mmData ul:nth(2) li.values").inner_html.gsub(/\,/,"").to_i
-        self.campaign_missions    = (@front_page/"div.profile_strip div.profile_body div.mmData ul:nth(3) li.values").inner_html.gsub(/\,/,"").to_i
-        self.member_since         = (@front_page/"div.spotlight div ").inner_html.split("&nbsp; | &nbsp;")[0].gsub("Player Since ", "").to_date
-        self.last_played          = (@front_page/"div.spotlight div ").inner_html.split("&nbsp; | &nbsp;")[1].gsub("Last Played ", "").to_date
+        self.baddies_killed       = (@front_page/"div.service_box div.littleright div.overallscore ul:nth(0) li.value.green").inner_html.gsub(/\,/,"").to_i
+        self.allies_lost          = (@front_page/"div.service_box div.littleright div.overallscore ul:nth(0) li.value.red").inner_html.gsub(/\,/,"").to_i
+        self.total_games          = (@front_page/"#ctl00_mainContent_pnlHalo3Box div.topper span.counter").inner_html.split(": (")[1].gsub(/\,/,"").to_i
+        self.matchmade_games      = (@front_page/"#ctl00_mainContent_pnlHalo3Box ul.legend li:nth(3)").inner_html.gsub(/\,/,"").to_i + (@front_page/"div.profile_strip div.profile_body #ctl00_mainContent_pnlHalo3Box ul.legend li:nth(5)").inner_html.gsub(/\,/,"").to_i
+        self.custom_games         = (@front_page/"#ctl00_mainContent_pnlHalo3Box ul.legend li:nth(7)").inner_html.gsub(/\,/,"").to_i
+        self.campaign_missions    = (@front_page/"#ctl00_mainContent_pnlHalo3Box ul.legend li:nth(1)").inner_html.gsub(/\,/,"").to_i
+        self.member_since         = (@front_page/"div.service_box div.bigleft div.info span:nth(0)").inner_html.split("&nbsp; | &nbsp;")[0].gsub("Player Since ", "").to_date
+        self.last_played          = (@front_page/"div.service_box div.bigleft div.info span:nth(0)").inner_html.split("&nbsp; | &nbsp;")[1].gsub("Last Played ", "").to_date
       end
       
       ##
@@ -414,7 +414,7 @@ module Rhalo3stats
         medal_divs.each do |div| 
           ranked = (div/"span.top").inner_html.gsub(",","").to_i
           social = (div/"span.bot").inner_html.gsub(",","").to_i
-          name_id = MEDAL_IDS[div[:id]]
+          name_id = MEDAL_IDS[div.at("div")[:id]]
           updated_medals << { :medal_name_id => name_id, :playlist_type => 1, :gamertag_id => self.id, :quantity => ranked }
           updated_medals << { :medal_name_id => name_id, :playlist_type => 2, :gamertag_id => self.id, :quantity => social }
         end
