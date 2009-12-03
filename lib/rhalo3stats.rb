@@ -329,8 +329,8 @@ module Rhalo3stats
       # Update all the stats that are found on the front page of bungie.net
       def update_front_page_stats
         raise ServiceRecordNotFound, "No Service Record Found" if (@front_page/"div.spotlight h1:nth(0)").inner_html == "Halo 3 Service Record Not Found"
-        self.name                 = (@front_page/"div.service_record_header div:nth(1) ul li h3").inner_html.split(" - ")[0].strip
-        self.service_tag          = (@front_page/"div.service_record_header div:nth(1) ul li h3").inner_html.split(" - ")[1].strip
+        self.name                 = (@front_page/"div.service_record_header.halo3 div:nth(1) ul li h3").inner_html.split(" - ")[0].strip
+        self.service_tag          = (@front_page/"div.service_record_header.halo3 div:nth(1) ul li:nth(0) h3").inner_html.split(" - ")[1].strip
         self.class_rank           = (@front_page/"#ctl00_mainContent_identityStrip_lblRank").inner_html.split(": ")[1] || "Not Ranked"
         self.emblem_url           = "http://www.bungie.net#{(@front_page/'#ctl00_mainContent_identityStrip_EmblemCtrl_imgEmblem').first[:src]}"
         self.player_image_url     = "http://www.bungie.net#{(@front_page/'#ctl00_mainContent_imgModel').first[:src]}".gsub("9=145","9=300") rescue self.player_image_url = "http://#{RMT_HOST}/images/no_player_image.jpg"
@@ -494,12 +494,12 @@ module Rhalo3stats
       # Shortcut method for using the Hpricot methods for fetching pages
       def get_page(url)
         Hpricot.buffer_size = 262144
-        Hpricot(open(url, {"User-Agent" => "Mozilla/5.0 Firefox/3.0b5"}))
+        Hpricot(open(url, {"User-Agent" => "Mozilla/5.0 Firefox/3.5"}))
       end
       
       def get_xml(url)
         Hpricot.buffer_size = 262144
-        Hpricot.XML(open(url, {"User-Agent" => "Mozilla/5.0 Firefox/3.0b5"}))
+        Hpricot.XML(open(url, {"User-Agent" => "Mozilla/5.0 Firefox/3.5"}))
       end
       
       ##
